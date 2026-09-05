@@ -1,0 +1,87 @@
+{
+  "_unit": "1 credit = 1 second of a held lane. creditTinybar is the price the buyer pays per credit.",
+  "_hbarUsd": 0.07774666666666667,
+  "_hbarUsdSource": "hedera mirror node /api/v1/network/exchangerate, resolved live at generation; recompute at boot",
+  "_pricing": "creditTinybar = provider all-in cost/sec x 1.10, rounded to 1000 tinybar",
+  "_costSource": "upstream published Starter-plan rates: $0.035/vCPU-hr, $0.011/GB-hr, +$0.02/hr screen, $0.10/browser-hr",
+  "_unverified": {
+    "browser-stealth": "upstream documents a 'higher per-second rate' for the stealth pool but publishes no number; lane omitted until measured",
+    "addons": "captcha $0.01/solve and proxy $1.00/GB are per-event, not per-second: bill as separate line items, not credits"
+  },
+  "lanes": {
+    "machine-1": {
+      "family": "machine",
+      "providerCostPerSecUsd": 1.58333e-05,
+      "creditTinybar": 22000,
+      "marginPct": 10,
+      "usdPerHour": 0.057,
+      "priceUsdPerHour": 0.0616,
+      "vcpu": 1,
+      "memGiB": 2
+    },
+    "machine-2": {
+      "family": "machine",
+      "providerCostPerSecUsd": 3.16667e-05,
+      "creditTinybar": 45000,
+      "marginPct": 10,
+      "usdPerHour": 0.114,
+      "priceUsdPerHour": 0.1259,
+      "vcpu": 2,
+      "memGiB": 4
+    },
+    "machine-4": {
+      "family": "machine",
+      "providerCostPerSecUsd": 6.33333e-05,
+      "creditTinybar": 90000,
+      "marginPct": 10,
+      "usdPerHour": 0.228,
+      "priceUsdPerHour": 0.2519,
+      "vcpu": 4,
+      "memGiB": 8
+    },
+    "machine-8": {
+      "family": "machine",
+      "providerCostPerSecUsd": 0.0001266667,
+      "creditTinybar": 179000,
+      "marginPct": 10,
+      "usdPerHour": 0.456,
+      "priceUsdPerHour": 0.501,
+      "vcpu": 8,
+      "memGiB": 16
+    },
+    "desktop-2": {
+      "family": "desktop",
+      "providerCostPerSecUsd": 3.72222e-05,
+      "creditTinybar": 53000,
+      "marginPct": 10,
+      "usdPerHour": 0.134,
+      "priceUsdPerHour": 0.1483,
+      "vcpu": 2,
+      "memGiB": 4,
+      "resolution": "1280x720",
+      "stream": "vnc"
+    },
+    "desktop-4": {
+      "family": "desktop",
+      "providerCostPerSecUsd": 6.88889e-05,
+      "creditTinybar": 97000,
+      "marginPct": 10,
+      "usdPerHour": 0.248,
+      "priceUsdPerHour": 0.2715,
+      "vcpu": 4,
+      "memGiB": 8,
+      "resolution": "1920x1080",
+      "stream": "vnc"
+    },
+    "browser-fast": {
+      "family": "browser",
+      "providerCostPerSecUsd": 2.77778e-05,
+      "creditTinybar": 39000,
+      "marginPct": 10,
+      "usdPerHour": 0.1,
+      "priceUsdPerHour": 0.1092,
+      "pool": "fast",
+      "stealth": false
+    }
+  }
+}
