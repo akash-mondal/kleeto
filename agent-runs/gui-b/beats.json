@@ -1,0 +1,44 @@
+[
+ {
+  "n": 1,
+  "app": "Meld",
+  "label": "diffing two files",
+  "phase": "thinking",
+  "at": 193.61
+ },
+ {
+  "n": 2,
+  "app": "Meld",
+  "label": "diffing two files",
+  "phase": "acting",
+  "at": 196.35
+ },
+ {
+  "n": 3,
+  "app": "AbiWord",
+  "label": "a word processor",
+  "phase": "thinking",
+  "at": 210.28
+ },
+ {
+  "n": 4,
+  "app": "AbiWord",
+  "label": "a word processor",
+  "phase": "acting",
+  "at": 213.01
+ },
+ {
+  "n": 5,
+  "app": "Epiphany",
+  "label": "a second browser",
+  "phase": "thinking",
+  "at": 231.04
+ },
+ {
+  "n": 6,
+  "app": "Epiphany",
+  "label": "a second browser",
+  "phase": "acting",
+  "at": 233.96
+ }
+]

@@ -1,0 +1,37 @@
+[
+ {
+  "app": "Blender",
+  "prompt": "Frame the knot and render it.",
+  "doing": "opening the scene",
+  "phase": "thinking",
+  "at": 14.55
+ },
+ {
+  "app": "Blender",
+  "prompt": "Frame the knot and render it.",
+  "doing": "framing the camera",
+  "phase": "acting",
+  "at": 27.18
+ },
+ {
+  "app": "Blender",
+  "prompt": "Frame the knot and render it.",
+  "doing": "the render lands",
+  "phase": "render",
+  "at": 48.31
+ },
+ {
+  "app": "eBay",
+  "prompt": "Find what this model is going for and what the seller will take.",
+  "doing": "reading the listings",
+  "phase": "thinking",
+  "at": 72.01
+ },
+ {
+  "app": "eBay",
+  "prompt": "Find what this model is going for and what the seller will take.",
+  "doing": "reading price, condition and shipping",
+  "phase": "acting",
+  "at": 178.88
+ }
+]

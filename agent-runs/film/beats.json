@@ -1,0 +1,65 @@
+{
+ "beats": [
+  {
+   "name": "browser-open",
+   "at": 0,
+   "note": "Chrome launching on the live front page"
+  },
+  {
+   "name": "browser-read",
+   "at": 7.31,
+   "note": "scrolling the front page"
+  },
+  {
+   "name": "terminal-collect",
+   "at": 12.64,
+   "note": "the same data, through the API"
+  },
+  {
+   "name": "terminal-plot",
+   "at": 30.9,
+   "note": "matplotlib chart from the CSV"
+  },
+  {
+   "name": "terminal-render",
+   "at": 38.95,
+   "note": "Blender rendering with no display"
+  },
+  {
+   "name": "terminal-serve",
+   "at": 56.31,
+   "note": "a web server on the machine"
+  },
+  {
+   "name": "browser-preview",
+   "at": 66.86,
+   "note": "the same machine, seen from the public internet"
+  },
+  {
+   "name": "desktop-blender",
+   "at": 80.21,
+   "note": "the same scene, opened in Blender"
+  },
+  {
+   "name": "desktop-render",
+   "at": 123.24,
+   "note": "F12"
+  },
+  {
+   "name": "desktop-calc",
+   "at": 144.27,
+   "note": "the numbers in a spreadsheet"
+  },
+  {
+   "name": "receipt",
+   "at": 170.8,
+   "note": "what came out, and what it cost"
+  },
+  {
+   "name": "end",
+   "at": 188.09,
+   "note": ""
+  }
+ ],
+ "preview": "[object Promise]"
+}

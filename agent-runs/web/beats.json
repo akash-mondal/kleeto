@@ -1,0 +1,58 @@
+[
+ {
+  "app": "Storefront",
+  "prompt": "Check the price and stock on the store's featured item.",
+  "doing": "opening the product and reading the options",
+  "phase": "thinking",
+  "at": 6.99
+ },
+ {
+  "app": "Storefront",
+  "prompt": "Check the price and stock on the store's featured item.",
+  "doing": "opening the product and reading the options",
+  "phase": "acting",
+  "at": 72.04
+ },
+ {
+  "app": "Grafana",
+  "prompt": "Check the service dashboard for the last hour.",
+  "doing": "reading the live panels",
+  "phase": "thinking",
+  "at": 83.54
+ },
+ {
+  "app": "Grafana",
+  "prompt": "Check the service dashboard for the last hour.",
+  "doing": "reading the live panels",
+  "phase": "acting",
+  "at": 148.87
+ },
+ {
+  "app": "GitHub",
+  "prompt": "Open the newest pull request and show me the diff.",
+  "doing": "reading the changed files",
+  "phase": "thinking",
+  "at": 160.34
+ },
+ {
+  "app": "GitHub",
+  "prompt": "Open the newest pull request and show me the diff.",
+  "doing": "reading the changed files",
+  "phase": "acting",
+  "at": 231.87
+ },
+ {
+  "app": "OpenStreetMap",
+  "prompt": "Plan a driving route from the Louvre to Gare du Nord.",
+  "doing": "reading the turn-by-turn directions",
+  "phase": "thinking",
+  "at": 246.48
+ },
+ {
+  "app": "OpenStreetMap",
+  "prompt": "Plan a driving route from the Louvre to Gare du Nord.",
+  "doing": "reading the turn-by-turn directions",
+  "phase": "acting",
+  "at": 269.16
+ }
+]

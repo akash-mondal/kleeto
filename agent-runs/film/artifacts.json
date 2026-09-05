@@ -1,0 +1,40 @@
+{
+ "artifacts": [
+  {
+   "path": "/work/out/.~lock.frontpage.ods#",
+   "sha256": "02ae134d22026ed448d06f22130e65e0996ebea5a732e462cae1363233337d12",
+   "bytes": 53
+  },
+  {
+   "path": "/work/out/chart.png",
+   "sha256": "092fa5ee94b5e4e51345f489736cc917978470371cdd592439a637840a9d09a1",
+   "bytes": 29397
+  },
+  {
+   "path": "/work/out/frame_0001.png",
+   "sha256": "1ad2aebe7f3b6f734cdeb13dc96b0fcc1311fbc4b4a85c4d5cb165b09e8d6082",
+   "bytes": 260006
+  },
+  {
+   "path": "/work/out/frontpage.csv",
+   "sha256": "9ae27f9a8a42e0b22826fa1a77947d7591554f42f6bd2cfc09fdcfb78492bf0f",
+   "bytes": 473
+  },
+  {
+   "path": "/work/out/frontpage.ods",
+   "sha256": "278a088f0f6f8b910ea8905bf9ac85f2824236317c05e57dff13308330d0ed59",
+   "bytes": 21616
+  },
+  {
+   "path": "/work/out/render.png",
+   "sha256": "c019619acedc7d5ef7b97090beb13b77fc1041353945cf2e25cb0140e4354c24",
+   "bytes": 259995
+  },
+  {
+   "path": "/work/out/scene.blend",
+   "sha256": "3f13e59f3a85355bed27137a9a3311e4fa4aa9d5c088efdaa04c0e4cde4dfebc",
+   "bytes": 488660
+  }
+ ],
+ "root": "68714e35ba992390fc45cc9348a8bdf4c3884dc584d562e4e3e9e28d50e394e6"
+}

@@ -1,0 +1,21 @@
+{
+ "beats": [
+  {
+   "name": "serve",
+   "at": 0
+  },
+  {
+   "name": "open-preview",
+   "at": 16.45
+  },
+  {
+   "name": "open-artifact",
+   "at": 26.67
+  },
+  {
+   "name": "end",
+   "at": 36.26
+  }
+ ],
+ "preview": "https://713fa4448322bef82b57-8080.preview.getsolari.com"
+}

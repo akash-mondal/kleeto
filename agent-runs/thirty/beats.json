@@ -1,0 +1,194 @@
+[
+ {
+  "n": 1,
+  "app": "neofetch",
+  "note": "the machine introduces itself",
+  "at": 11.86
+ },
+ {
+  "n": 2,
+  "app": "htop",
+  "note": "what is running on it",
+  "at": 24.92
+ },
+ {
+  "n": 3,
+  "app": "tree",
+  "note": "the working directory",
+  "at": 33.49
+ },
+ {
+  "n": 4,
+  "app": "curl + jq",
+  "note": "a live API, parsed",
+  "at": 41.72
+ },
+ {
+  "n": 5,
+  "app": "python",
+  "note": "arithmetic in the REPL",
+  "at": 51.64
+ },
+ {
+  "n": 6,
+  "app": "sqlite3",
+  "note": "a database, created and queried",
+  "at": 73.54
+ },
+ {
+  "n": 7,
+  "app": "git",
+  "note": "a repository, cloned",
+  "at": 87.09
+ },
+ {
+  "n": 8,
+  "app": "node",
+  "note": "JavaScript on the same box",
+  "at": 97.2
+ },
+ {
+  "n": 9,
+  "app": "ffmpeg",
+  "note": "encoding video",
+  "at": 106.48
+ },
+ {
+  "n": 10,
+  "app": "blender (cli)",
+  "note": "a render with no display",
+  "at": 126.58
+ },
+ {
+  "n": 11,
+  "app": "sha256sum",
+  "note": "hashing what it made",
+  "at": 136.29
+ },
+ {
+  "n": 12,
+  "app": "ncdu",
+  "note": "where the disk went",
+  "at": 144.79
+ },
+ {
+  "n": 13,
+  "app": "tmux",
+  "note": "panes, sessions, the works",
+  "at": 157.37
+ },
+ {
+  "n": 14,
+  "app": "vim",
+  "note": "an editor with no mouse",
+  "at": 168.13
+ },
+ {
+  "n": 15,
+  "app": "http.server",
+  "note": "a server, answering",
+  "at": 186.47
+ },
+ {
+  "n": 16,
+  "app": "figlet",
+  "note": "because the terminal is real",
+  "at": 199.59
+ },
+ {
+  "n": 17,
+  "app": "Chrome",
+  "note": "reading a page",
+  "at": 225.94
+ },
+ {
+  "n": 18,
+  "app": "Chrome (maps)",
+  "note": "a map, panned",
+  "at": 261.44
+ },
+ {
+  "n": 19,
+  "app": "LibreOffice Calc",
+  "note": "a spreadsheet",
+  "at": 294.79
+ },
+ {
+  "n": 20,
+  "app": "LibreOffice Writer",
+  "note": "a document, typed",
+  "at": 320.7
+ },
+ {
+  "n": 21,
+  "app": "LibreOffice Impress",
+  "note": "slides",
+  "at": 345.5
+ },
+ {
+  "n": 22,
+  "app": "LibreOffice Draw",
+  "note": "vector shapes",
+  "at": 380.16
+ },
+ {
+  "n": 23,
+  "app": "Evince",
+  "note": "a PDF it produced",
+  "at": 397.95
+ },
+ {
+  "n": 24,
+  "app": "Thunar",
+  "note": "files on disk",
+  "at": 418.68
+ },
+ {
+  "n": 25,
+  "app": "Mousepad",
+  "note": "a text editor",
+  "at": 435.17
+ },
+ {
+  "n": 26,
+  "app": "Ristretto",
+  "note": "the render, viewed",
+  "at": 463.42
+ },
+ {
+  "n": 27,
+  "app": "Galculator",
+  "note": "a calculator, clicked",
+  "at": 476.87
+ },
+ {
+  "n": 28,
+  "app": "Xarchiver",
+  "note": "archives",
+  "at": 503.02
+ },
+ {
+  "n": 29,
+  "app": "GIMP",
+  "note": "image editing",
+  "at": 534.93
+ },
+ {
+  "n": 30,
+  "app": "Inkscape",
+  "note": "vector editing",
+  "at": 571.12
+ },
+ {
+  "n": 31,
+  "app": "Blender",
+  "note": "3D, driven by hand",
+  "at": 615.54
+ },
+ {
+  "n": 32,
+  "app": "wrap",
+  "note": "end of take",
+  "at": 623.52
+ }
+]

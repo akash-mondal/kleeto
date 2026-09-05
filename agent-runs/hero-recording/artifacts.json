@@ -1,0 +1,30 @@
+{
+ "artifacts": [
+  {
+   "path": "/work/.~lock.frontpage.ods#",
+   "sha256": "4fdf120cf8b257903958687ad116d3d0d5835c018e2270b80858cde6eb7d0667",
+   "bytes": 53
+  },
+  {
+   "path": "/work/collect.py",
+   "sha256": "c334d574e6324a595b1f40ca7e1a2c6acd6440c56eeeb16bd2ac169b0a05e743",
+   "bytes": 654
+  },
+  {
+   "path": "/work/frontpage.csv",
+   "sha256": "1b04a33a47ea6d0f905ee8e1549c81aa6f1247b8e89027f26d81d578d7165a5f",
+   "bytes": 501
+  },
+  {
+   "path": "/work/frontpage.ods",
+   "sha256": "3b5d6ec1d825afaf7efd7d1ae85529ea9e9e7f763317c51c731e8ca6198ed344",
+   "bytes": 19456
+  },
+  {
+   "path": "/work/frontpage.pdf",
+   "sha256": "750b212c3b3c0d86481ccfd8e168709e161efa906c7e505262ccb2d21bac645c",
+   "bytes": 16872
+  }
+ ],
+ "root": "47ba1981e5c211784c7a5777eb035b617c3ffc5026eccedc60e6016a22bb6f17"
+}
