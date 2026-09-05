@@ -1,0 +1,28 @@
+{
+  "name": "kleeto",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Rent an agent a computer by the second, paid over x402 on Hedera.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@hiero-ledger/sdk": "2.85.0",
+    "@hono/node-server": "^2.0.12",
+    "@solarisdk/desktop": "^0.1.2",
+    "@solarisdk/sandbox": "^0.1.2",
+    "@solarisdk/sdk": "^0.1.2",
+    "@x402/core": "~2.24.0",
+    "@x402/fetch": "~2.24.0",
+    "@x402/hedera": "~2.24.0",
+    "@x402/hono": "~2.24.0",
+    "hono": "^4.12.32",
+    "playwright-core": "^1.62.1",
+    "zod": "^4.4.3"
+  },
+  "scripts": {
+    "net": "node scripts/check-networks.mjs"
+  }
+}
