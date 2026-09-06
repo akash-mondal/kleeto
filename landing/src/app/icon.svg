@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <title>Kleeto</title>
+  <!-- The tab draws this at sixteen to twenty pixels. The full mark's twelve ticks fuse
+       into grey mush at that size, so the dial is reduced to its four cardinals at double
+       weight and the cube is drawn larger, where its three faces still separate. -->
+  <rect width="32" height="32" rx="7" fill="#171310"/>
+  <!-- four ticks instead of twelve, at the cardinals and twice the weight: at sixteen
+       pixels a tick is one pixel wide, and twelve of them fill the ring with grey mush -->
+  <g fill="#f5b301">
+    <rect x="14.6" y="2.4" width="2.8" height="4" rx="1.2"/>
+    <rect x="25.6" y="14.6" width="4" height="2.8" rx="1.2"/>
+  </g>
+  <g fill="#EFE9DF" fill-opacity="0.42">
+    <rect x="14.6" y="25.6" width="2.8" height="4" rx="1.2"/>
+    <rect x="2.4" y="14.6" width="4" height="2.8" rx="1.2"/>
+  </g>
+  <!-- the cube, larger than in the full mark so its three faces stay separable -->
+  <path d="M16 7.4 L24.6 12.4 L16 17.4 L7.4 12.4 Z" fill="#f5b301"/>
+  <path d="M7.4 12.4 L16 17.4 L16 25.8 L7.4 20.8 Z" fill="#EFE9DF" fill-opacity="0.55"/>
+  <path d="M24.6 12.4 L16 17.4 L16 25.8 L24.6 20.8 Z" fill="#EFE9DF" fill-opacity="0.88"/>
+</svg>
