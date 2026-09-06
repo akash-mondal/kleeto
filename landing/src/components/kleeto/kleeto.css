@@ -1,0 +1,76 @@
+/* Kleeto tokens — see docs/design/kleeto-brief.md §3. OKLCH, all neutrals tinted to hue 85. */
+.kleeto {
+  --kl-ground: oklch(0.975 0.006 85);
+  --kl-section: oklch(0.945 0.009 85);
+  --kl-fg: oklch(0.21 0.012 85);
+  --kl-muted: oklch(0.5 0.014 85);
+  --kl-line: oklch(0.86 0.012 85);
+  --kl-amber: oklch(0.8 0.165 85);
+  --kl-amber-deep: oklch(0.6 0.135 75);
+  --kl-card: oklch(0.19 0.01 85);
+  --kl-card-deep: oklch(0.14 0.01 85);
+  --kl-on-card: oklch(0.96 0.006 85);
+  --kl-on-card-muted: oklch(0.7 0.012 85);
+
+  /* code tokens: warm, three-colour, so a command reads without looking like a toy theme */
+  --kl-code-key: oklch(0.47 0.15 32);
+  --kl-code-str: oklch(0.55 0.115 78);
+  --kl-code-num: oklch(0.5 0.1 150);
+  --kl-code-punct: oklch(0.55 0.014 85);
+  --kl-code-gutter: oklch(0.74 0.012 85);
+
+  /* the dark-mock components from solari-product read these */
+  --sol-accent: var(--kl-amber);
+  --sol-panel: var(--kl-card-deep);
+  --sol-card: var(--kl-card);
+  --sol-muted: var(--kl-on-card-muted);
+  --sol-bg: var(--kl-card-deep);
+
+  --font-display: var(--font-archivo), system-ui, sans-serif;
+  --font-numeric: var(--font-azeret), ui-monospace, monospace;
+  /* the runloop primitives' eyebrow font */
+  --font-plex-mono: var(--font-azeret);
+
+  background: var(--kl-ground);
+  color: var(--kl-fg);
+  font-family: var(--font-display);
+  font-variation-settings: "wdth" 100;
+  -webkit-font-smoothing: antialiased;
+}
+
+.kl-display {
+  font-family: var(--font-display);
+  font-variation-settings: "wdth" 114;
+  letter-spacing: -0.025em;
+}
+.kl-num {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+/* utilities on top of tailwind, so section files stay readable */
+.kl-ground { background: var(--kl-ground); }
+.kl-section { background: var(--kl-section); }
+.kl-card { background: var(--kl-card); color: var(--kl-on-card); }
+.kl-card-deep { background: var(--kl-card-deep); color: var(--kl-on-card); }
+.text-kl-fg { color: var(--kl-fg); }
+.text-kl-muted { color: var(--kl-muted); }
+.text-kl-amber { color: var(--kl-amber); }
+.text-kl-amber-deep { color: var(--kl-amber-deep); }
+.text-kl-on-card { color: var(--kl-on-card); }
+.text-kl-on-card-muted { color: var(--kl-on-card-muted); }
+.border-kl-line { border-color: var(--kl-line); }
+.bg-kl-amber { background: var(--kl-amber); }
+
+/* measured Solari reveal curve, opt-in */
+.kl-reveal {
+  opacity: 0;
+  transform: translateY(var(--kl-reveal-y, 28px));
+  transition:
+    opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.kl-reveal[data-shown="true"] { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .kl-reveal { opacity: 1; transform: none; transition: none; }
+}
