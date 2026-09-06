@@ -1,0 +1,116 @@
+/* ── Aurora sweep ───────────────────────────────────────────────────────────
+   The largest animation on the live product pages: 12.69 % of the viewport
+   changes on /sandboxes, 12.03 % on /desktops (reference/motion/diff-report.json).
+
+   Measured off the reference frames rather than guessed:
+   - The glow is per-card, not one layer behind the row. In every frame the
+     three cards carry a pixel-identical copy of it (peak colour rgb(131,99,27)
+     at the same card-relative point in all three), so it is painted inside
+     each card and clipped by it.
+   - Peak sits on the left edge at roughly 52 % of the card height and reads as
+     a broad diagonal wedge that sweeps up and slightly right between f0 and f3.
+   - Peak colour over the #080a0e panel is rgb(126..131, 95..99, 26..27); the
+     amber core alone cannot produce that blue channel, so the layer is an amber
+     core over a wider warm-white halo. The mix below lands on rgb(122,98,32).
+   - Brightness breathes only a few percent across the captured window, so the
+     opacity loop is deliberately shallow.
+
+   Two blobs on co-prime-ish periods (17 s / 23 s) reproduce the composite,
+   non-sinusoidal drift measured between frames; a single sine could not. */
+
+.layer {
+  position: absolute;
+  inset: -35%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  inset: 0;
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+}
+
+.primary {
+  background:
+    radial-gradient(
+      40% 34% at 22% 52%,
+      rgba(245, 179, 1, 0.34) 0%,
+      rgba(245, 179, 1, 0.15) 42%,
+      rgba(245, 179, 1, 0) 74%
+    ),
+    radial-gradient(
+      55% 48% at 18% 56%,
+      rgba(255, 232, 196, 0.2) 0%,
+      rgba(255, 232, 196, 0.06) 46%,
+      rgba(255, 232, 196, 0) 76%
+    );
+  filter: blur(28px);
+  animation:
+    sweep-primary 7s ease-in-out infinite alternate,
+    breathe 5s ease-in-out infinite;
+}
+
+.secondary {
+  background: radial-gradient(
+    46% 30% at 62% 22%,
+    rgba(245, 179, 1, 0.14) 0%,
+    rgba(245, 179, 1, 0.05) 46%,
+    rgba(245, 179, 1, 0) 78%
+  );
+  filter: blur(38px);
+  animation:
+    sweep-secondary 9.5s ease-in-out infinite alternate,
+    breathe 6.5s ease-in-out infinite reverse;
+}
+
+/* f0 -> f3: the wedge travels up and a little to the right, then returns. */
+@keyframes sweep-primary {
+  from {
+    transform: translate3d(-16%, 26%, 0) scale(1.18);
+  }
+  to {
+    transform: translate3d(12%, -16%, 0) scale(0.88);
+  }
+}
+
+@keyframes sweep-secondary {
+  from {
+    transform: translate3d(18%, -14%, 0) scale(0.9);
+  }
+  to {
+    transform: translate3d(-20%, 18%, 0) scale(1.22);
+  }
+}
+
+/* Peak amber only varies ~4-8 % across the captured frames. */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Off-screen sections burn no compositor time. */
+.layer[data-active="false"] .blob {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob {
+    animation: none;
+  }
+  .primary {
+    /* The settled mid-loop pose, so the section still reads as designed. */
+    transform: translate3d(-2%, 4%, 0) scale(1);
+    opacity: 1;
+  }
+  .secondary {
+    transform: translate3d(-1%, 1%, 0) scale(1.04);
+    opacity: 1;
+  }
+}
