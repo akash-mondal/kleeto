@@ -1,0 +1,10 @@
+import { chromium } from "playwright-core";
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+await p.goto("http://localhost:3000/", { waitUntil: "domcontentloaded" });
+await p.evaluate(async () => { for (let y = 0; y < 1600; y += 400) { window.scrollTo(0, y); await new Promise(r => setTimeout(r, 200)); } });
+const el = p.locator("section").filter({ hasText: "Thirty applications. One agent" }).first();
+await el.scrollIntoViewIfNeeded();
+await p.waitForTimeout(11000);
+await el.screenshot({ path: "/tmp/film/section.png" });
+await b.close(); console.log("ok");
