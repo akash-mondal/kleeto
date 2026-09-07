@@ -9,7 +9,11 @@
 // correctly-signed payment.
 import { hbarUsd } from "./networks.mjs";
 
-/** Upstream published per-unit costs (Starter plan), USD. */
+/**
+ * Upstream published per-unit costs, USD, on the Starter plan the key is on. Free tier is
+ * 1.5x each of these, which is the "33% cheaper runtime" the plan advertises: the catalogue
+ * was built on these numbers from the start, so the upgrade changed capability, not price.
+ */
 const COST = { vcpuHour: 0.035, gbHour: 0.011, screenHour: 0.02, browserHour: 0.10 };
 const MARGIN = 1.10;
 
@@ -33,8 +37,11 @@ export const LANES = {
                  resolution: "1920x1080" },
   "browser-fast": { family: "browser", pool: "fast", stealth: false,
                     costPerSecUsd: COST.browserHour / 3600 },
-  // browser-stealth is deliberately absent: upstream documents "a higher per-second rate"
-  // for the stealth pool but publishes no number. It ships once measured, not guessed.
+  // browser-stealth is deliberately absent. It is no longer plan-gated (the key is on
+  // Starter as of 2026-09-07), but the pool has nothing in it: POST /sessions {stealth:true}
+  // answers 503 "No stealth pool available", fleet empty, on every attempt. Upstream also
+  // publishes no per-second number for it. A lane that cannot be served or measured is not
+  // a lane; it ships when both hold.
 };
 
 /** Round to whole tinybar, never below 1 — sub-tinybar precision cannot be settled. */

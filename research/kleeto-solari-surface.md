@@ -31,12 +31,27 @@
 | `runCode` stateful REPL | matplotlib charts returned as base64 PNG + structured chart data |
 | `git` namespace | clone/commit/push with per-call credentials, never persisted |
 
-## C. Plan-gated on the current key (free tier)
-`stealth`, `captcha`, `proxy` all return **402 FeatureRequiresPlan**; `webBotAuth` unsupported.
-Concurrency: **1 machine / 3 browsers**. Starter ($20) unlocks stealth + proxy + captcha and
-raises concurrency to 2 machines / 20 browsers.
-Consequence today: fast pool only, so Cloudflare-defended sites are out and a US exit IP
-triggers geo banners. `browser-stealth` stays out of the lane table until it is measured.
+## C. Plan gating, measured on the key (Starter, from 2026-09-07)
+
+Upgraded from Free to Starter ($20/mo). Verified against the API rather than the plan page:
+
+| Thing | Free | Starter, as measured |
+|---|---|---|
+| Concurrent machines | 1 | **2**. Two `machine-1` leases came up in parallel at 5.0s and 5.1s; the third was refused with `Too many concurrent sessions` at 13.4s. |
+| Concurrent browsers | 3 | 20 per the plan page, not yet exercised |
+| Max session | 1h | 5h |
+| Stealth pool | `402 FeatureRequiresPlan` | **entitled but unavailable**: `POST /sessions {stealth:true}` returns `503 {"error":"No stealth pool available","kind":"stealth","fleet":"empty"}`, three attempts over six minutes on 2026-09-07. Same for `stealth + proxy:"us"`. |
+| Proxy, captcha | `402 FeatureRequiresPlan` | unlocked on paper; both require stealth, so both are blocked behind the empty pool |
+| Desktops | `FeatureRequiresPlan` | working since the first shoot |
+
+Rates do not change with the upgrade: `src/lanes.mjs` was built on the published Starter
+numbers from the start ($0.035/vCPU-hr, $0.011/GB-hr, +$0.02/h screen, $0.10/browser-hr), so
+every price the site quotes is already the price this account pays. Free tier is 1.5x those,
+which is the "33% cheaper" on the plan card.
+
+`browser-stealth` still stays out of the lane table. The reason has changed: it is no longer
+plan-gated, it is that the pool is empty, so the lane cannot be measured and a lane we cannot
+serve is not a lane.
 
 ## D. Deliberately not used
 Legacy `/desktops` route (superseded by `/sandboxes` kind=desktop, and it does **not** reject
