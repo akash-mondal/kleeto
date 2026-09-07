@@ -74,7 +74,7 @@ export function HeroFilm({ className }: { className?: string }) {
         <video
           ref={videoRef}
           className="size-full object-cover"
-          poster="/video/film-poster.jpg"
+          poster="/video/film-poster.webp"
           preload="metadata"
           muted
           loop

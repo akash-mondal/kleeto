@@ -128,14 +128,13 @@ function ProductColumn({ product }: { product: Product }) {
         <video
           ref={videoRef}
           className="size-full object-cover"
-          poster={`/video/lane-${product.slug}-poster.jpg`}
+          poster={`/video/lane-${product.slug}-poster.webp`}
           preload="none"
           muted
           loop
           playsInline
           aria-label={product.ariaLabel}
         >
-          <source src={`/video/lane-${product.slug}.webm`} type="video/webm" />
           <source src={`/video/lane-${product.slug}.mp4`} type="video/mp4" />
         </video>
 
