@@ -34,7 +34,7 @@ export function KleetoReceipt() {
           <dl className="grid gap-px overflow-hidden rounded-[18px] border border-kl-line bg-kl-line sm:grid-cols-3">
             {[
               ["written to", "HCS topic 0.0.7181234", "one message per checkpoint, $0.0001 each"],
-              ["settled in", "USDC on Hedera", "final in seconds, fees quoted in USD"],
+              ["settled in", "HBAR or USDC", "on Hedera, final in seconds, fees quoted in USD"],
               ["signed with", "did:hedera · ES256K", "the receipt verifies without us"],
             ].map(([label, value, note]) => (
               <div key={label} className="bg-[var(--kl-ground)] px-6 py-5">

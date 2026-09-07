@@ -10,14 +10,14 @@ import { RailMark } from "./rail-marks";
  *
  * The earlier version buried the rail in prose and put the steps in a plain numbered
  * list. This one leads with the 402 itself: each move is a card carrying the method and
- * status it corresponds to, and the marks for x402, USDC and Hedera sit on the moves they
+ * status it corresponds to, and the marks for x402, HBAR and USDC sit on the moves they
  * belong to, so the exchange is legible before a word is read.
  */
 type Move = {
   code: string;
   title: string;
   body: string;
-  mark?: "x402" | "usdc" | "hedera";
+  marks?: readonly ("x402" | "usdc" | "hbar" | "hedera")[];
 };
 
 const MOVES: readonly Move[] = [
@@ -29,26 +29,26 @@ const MOVES: readonly Move[] = [
   {
     code: "402 Payment Required",
     title: "Kleeto answers with a price",
-    body: "The x402 challenge carries the rate per second, the asset and the network. One rate for that lane, fixed for the whole lease.",
-    mark: "x402",
+    body: "The x402 challenge carries the rate per second, the assets it accepts and the network. One rate for that lane, fixed for the whole lease.",
+    marks: ["x402"],
   },
   {
     code: "X-PAYMENT: <signed>",
     title: "The agent signs and asks again",
-    body: "It pays in USDC from its own funded account. The facilitator submits the transaction and covers the gas, so your agent holds only what it means to spend.",
-    mark: "usdc",
+    body: "It pays in HBAR or USDC, whichever it holds, from its own funded account. The facilitator submits the transaction and covers the gas, so your agent holds only what it means to spend.",
+    marks: ["usdc", "hbar"],
   },
   {
     code: "200 OK · lease open",
     title: "Hedera settles and the meter starts",
     body: "Final in seconds, at fees quoted in USD. The meter stops the moment your agent pauses, and the unused seconds come back.",
-    mark: "hedera",
+    marks: ["hedera"],
   },
 ];
 
 const LINES: readonly TerminalLine[] = [
   { text: "$ kleeto lease desktop-2", tone: "prompt", phase: "running" },
-  { text: "402 · 98,000 tinybar/s · USDC · hedera:testnet", tone: "info", phase: "running" },
+  { text: "402 · 98,000 tinybar/s · HBAR or USDC · hedera:testnet", tone: "info", phase: "running" },
   { text: "signed · agent 0.0.7162784 · fee payer 0.0.7162784", tone: "info", phase: "running" },
   { text: "up in 0.81 s · meter running", tone: "ok", phase: "running" },
   { text: "$ kleeto pause", tone: "prompt", phase: "paused" },
@@ -69,7 +69,7 @@ export function KleetoMeter() {
     <section id="meter" className="kl-section scroll-mt-20 py-24 md:py-32">
       <Container>
         <SectionHeading
-          lede="Kleeto speaks the x402 payment standard. One HTTP exchange quotes a machine, pays for it and opens it, settled in USDC on Hedera. Neither side needs an account."
+          lede="Kleeto speaks the x402 payment standard. One HTTP exchange quotes a machine, pays for it and opens it, settled in HBAR or USDC on Hedera. Neither side needs an account."
         >
           Four moves, and the machine <BoxedWord>is yours.</BoxedWord>
         </SectionHeading>
@@ -85,7 +85,11 @@ export function KleetoMeter() {
                         <span className="kl-num text-[11px] tracking-[0.14em] text-kl-muted uppercase">
                           {String(index + 1).padStart(2, "0")}
                         </span>
-                        {move.mark ? <RailMark name={move.mark} className="h-[18px] opacity-90" /> : null}
+                        <span className="flex items-center gap-2">
+                          {move.marks?.map((m) => (
+                            <RailMark key={m} name={m} className="h-[18px] opacity-90" />
+                          ))}
+                        </span>
                       </div>
                       <p className="kl-num mt-4 text-[12.5px] leading-[1.4] text-kl-amber-deep">{move.code}</p>
                       <p className="mt-3 text-[15px] leading-[1.3] font-medium text-kl-fg">{move.title}</p>

@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * The hero film. It opens by showing how a lease actually starts, an agent is
- * given a job, is quoted a price over x402, pays it in USDC through the
+ * given a job, is quoted a price over x402, pays it in USDC through the (the film records
+ * one lease; a lease can equally be paid in HBAR)
  * facilitator on Hedera, and the machine answers, then runs thirty windowed
  * applications at a second each. Under every shot is the exchange that produced
  * it, and the pointer is drawn from the coordinates the agent really issued.

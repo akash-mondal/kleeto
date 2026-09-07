@@ -56,8 +56,8 @@ export function KleetoFooter() {
             <div className="max-w-[34ch]">
               <KleetoLockup className="text-kl-on-card" href="#top" />
               <p className="mt-5 text-[14px] leading-[1.6] text-kl-on-card-muted">
-                A real computer your agent rents by the second and pays for itself, in USDC on
-                Hedera.
+                A real computer your agent rents by the second and pays for itself, in HBAR or
+                USDC on Hedera.
               </p>
               <div className="mt-6 flex items-center gap-2.5">
                 {SOCIALS.map((social) => (
@@ -101,7 +101,7 @@ export function KleetoFooter() {
           <div className="mt-12 flex flex-col gap-3 border-t border-white/10 pt-6 text-[12px] text-kl-on-card-muted md:flex-row md:items-center md:justify-between">
             <span>&copy; 2026 Kleeto</span>
             <span className="kl-num tracking-[0.02em]">
-              x402 · USDC · hedera:testnet
+              x402 · HBAR · USDC · hedera:testnet
             </span>
           </div>
         </div>

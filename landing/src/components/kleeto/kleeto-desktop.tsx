@@ -49,7 +49,7 @@ export function DesktopShowcase() {
     <section id="desktop" className="kl-ground scroll-mt-20 py-24 md:py-32">
       <Container>
         <SectionHeading
-          lede="Real applications on a real screen, driven by mouse and keyboard. Rented by the second and paid for out of the agent's own USDC balance."
+          lede="Real applications on a real screen, driven by mouse and keyboard. Rented by the second and paid for out of the agent's own balance, in HBAR or USDC."
         >
           The apps your agent needs are <BoxedWord>already open.</BoxedWord>
         </SectionHeading>

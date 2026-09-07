@@ -16,14 +16,14 @@ const ITEMS: readonly QA[] = [
       "x402 is the HTTP payment standard: you ask for something, the server answers 402 Payment Required with a price, you sign a payment and ask again. Kleeto puts a per-second rate for the lane in that challenge. Your agent signs it, the machine opens, and the rate is fixed for the whole lease.",
   },
   {
-    question: "Why Hedera, and why USDC?",
+    question: "Why Hedera, and which assets can my agent pay in?",
     answer:
-      "Per-second billing needs fees that do not move and settlement that does not wait. Hedera's fees are quoted in USD from $0.0001 and transactions reach finality in seconds. Payment is in USDC so the agent holds dollars rather than a volatile balance, and the facilitator submits the transaction and covers the gas.",
+      "Per-second billing needs fees that do not move and settlement that does not wait. Hedera's fees are quoted in USD from $0.0001 and transactions reach finality in seconds. A lease can be paid in HBAR or in USDC: the 402 quotes the rate for both, so an agent holding dollars and an agent holding the native asset can each answer it without swapping first. Either way the facilitator submits the transaction and covers the gas.",
   },
   {
     question: "Does my agent need a wallet?",
     answer:
-      "It needs a funded Hedera account holding USDC. Fund it once and the agent answers each 402 itself. There is no Kleeto account, no API key and no card on file, the account is the identity and the funding at the same time.",
+      "It needs a funded Hedera account holding HBAR or USDC. Fund it once and the agent answers each 402 itself. There is no Kleeto account, no API key and no card on file, the account is the identity and the funding at the same time.",
   },
   {
     question: "What exactly do I get for the money?",
@@ -48,7 +48,7 @@ const ITEMS: readonly QA[] = [
   {
     question: "Which network does it run on?",
     answer:
-      "hedera:testnet. Payment is USDC over x402, quoted per second in the 402 and settled through a facilitator, and every checkpoint is written to a public Hedera Consensus Service topic.",
+      "hedera:testnet. Payment is HBAR or USDC over x402, quoted per second in the 402 and settled through a facilitator, and every checkpoint is written to a public Hedera Consensus Service topic.",
   },
 ];
 

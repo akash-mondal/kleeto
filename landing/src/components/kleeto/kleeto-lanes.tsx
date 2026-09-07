@@ -91,7 +91,7 @@ export function KleetoLanes() {
     <section id="lanes" className="kl-ground scroll-mt-20 py-24 md:py-32">
       <Container>
         <SectionHeading
-          lede="A browser for a form, a machine for the heavy pass, a desktop when the app has no API. Whichever you take, the price per second comes back in the 402, your agent pays it in USDC, and Hedera settles it."
+          lede="A browser for a form, a machine for the heavy pass, a desktop when the app has no API. Whichever you take, the price per second comes back in the 402, your agent pays it in HBAR or USDC, and Hedera settles it."
         >
           Rent only what the job needs, <BoxedWord>by the second.</BoxedWord>
         </SectionHeading>

@@ -15,7 +15,7 @@ export function KleetoCtaBand() {
               Fund it once. <BoxedWord tone="dark">It rents the rest</BoxedWord>.
             </h2>
             <p className="mt-5 w-full max-w-[52ch] text-[14px] leading-[1.6] text-kl-on-card-muted md:text-[15px]">
-              Your agent holds its own USDC on Hedera and answers each 402 itself. There is no Kleeto account, no API key and no card on file.
+              Your agent holds its own HBAR or USDC on Hedera and answers each 402 itself. There is no Kleeto account, no API key and no card on file.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
               <PillButton href="#" tone="dark" className="w-full max-w-[280px] sm:w-auto">
