@@ -49,6 +49,11 @@ numbers from the start ($0.035/vCPU-hr, $0.011/GB-hr, +$0.02/h screen, $0.10/bro
 every price the site quotes is already the price this account pays. Free tier is 1.5x those,
 which is the "33% cheaper" on the plan card.
 
+Vendor's account of the outage, from Harry Chow (Head of Growth Ops, Pinetree Research), by
+email on 2026-09-07: an AWS outage on their side, expected to clear the following day, with
+their support staff offline until then. Recorded as reported, not confirmed: the only thing
+observed from here is the 503. Retested at 19:56 UTC on 2026-09-07, still `fleet: empty`.
+
 `browser-stealth` still stays out of the lane table. The reason has changed: it is no longer
 plan-gated, it is that the pool is empty, so the lane cannot be measured and a lane we cannot
 serve is not a lane.
