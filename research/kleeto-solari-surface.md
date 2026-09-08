@@ -52,7 +52,11 @@ which is the "33% cheaper" on the plan card.
 Vendor's account of the outage, from Harry Chow (Head of Growth Ops, Pinetree Research), by
 email on 2026-09-07: an AWS outage on their side, expected to clear the following day, with
 their support staff offline until then. Recorded as reported, not confirmed: the only thing
-observed from here is the 503. Retested at 19:56 UTC on 2026-09-07, still `fleet: empty`.
+observed from here is the 503. Retested at 19:56 UTC on 2026-09-07, still `fleet: empty`. Retested again at 19:28 UTC on
+2026-09-08, two days after the estimate: still `fleet: empty`, for plain stealth and for
+stealth with a US proxy. Both calls hang for 61s before the 503, which reads as a wait on a
+pool that never fills rather than a fast rejection. The fast pool answers in 1.4s in the same
+minute, so this is the stealth fleet specifically and not the browser service.
 
 `browser-stealth` still stays out of the lane table. The reason has changed: it is no longer
 plan-gated, it is that the pool is empty, so the lane cannot be measured and a lane we cannot
