@@ -3,143 +3,165 @@
 **The idea in one line.** You spend the afternoon out. Your agent spends it working, on computers
 it rents by the second and pays for itself. You paid for your afternoon; it paid for its own.
 
-**Why this frame.** Every agent demo on the internet is "look what it did." This one is "look
-what it *paid for*." The receipt at the end is the product. A running tally on screen, your
-spend against its spend, carries the whole video without a single line of pitch.
+**Shape.** Cold open, three handoffs (one from work, one from someone you love, one on the spot),
+the receipt. About 90 seconds. Each handoff is the same grammar: a ping, a photo or a message
+arrives on your phone in the real world; you say one line; cut to the real 402, the real payment,
+the real machine coming up; time-lapsed work across real applications with the agent's pointer;
+the result lands back where the request came from, and you glance at it on your phone.
 
-**Shape.** Cold open, four handoffs, one chained finale, the receipt. About 100 to 110 seconds.
-Each handoff: you speak one line to your phone; cut to the machine coming up (real 402, real
-payment, real boot); time-lapsed work with the agent pointer; the artifact on your phone.
+**The device.** A small tally under every beat: `you $4.50 · agent $0.01`. Your side is what you
+actually spent. Its side comes off the receipts, never typed in.
 
-**Rules kept.** Every screen is a real lease. Nothing is a mockup. The agent never buys anything;
-it researches before you buy. Every task ends in an artifact that can be checked. The finale is
-the browser to machine to desktop chain.
-
-**Recording the handoffs.** One breath each. State the job, the constraint, and where the result
-goes. No "please", no "can you". Talk to it the way you'd talk to someone good.
+**Rules.** Every screen is a real lease. The agent adds to cart, drafts, books tables and holds
+dates, but never pays for anything. Work apps are demo workspaces, not the company's. Your
+logins never appear on screen: the browser opens already signed in from a saved profile.
 
 ---
 
-## 0 · Cold open · outside a coffee shop, phone at arm's length
+## 0 · Cold open · outside a coffee shop
+
+To camera, phone at arm's length:
 
 > I'm taking the afternoon off. My agent isn't. It's going to rent computers by the second and
 > pay for them itself, and I'll read its receipts when I get home.
 
-On screen under you, small: `you $0.00 · agent $0.00`. Every beat updates it.
+Tally appears: `you $0.00 · agent $0.00`. Cut to you ordering. Tally: `you $4.50`.
 
-## 1 · The bike · outside a bike shop, or at the coffee shop table
+---
 
-*Solari category: Web Scraping, Browser Agents. Site with no API. Lane: browser-fast, $0.11/hr.*
+## 1 · Work · the Slack ping · at the coffee shop table
 
-> Find me a used road bike. Craigslist, under six hundred, within fifteen miles, photos only.
-> Best eight, with price, frame size and the link, and tell me which ones look overpriced.
+**Trigger, on your phone.** Slack, #customers, from a colleague:
+> "Northwind just cancelled. Do we know why?"
 
-Agent, on screen, one line at a time:
-`402 · browser-fast · $0.11/hr · paying in USDC`
-`200 · up in 1.2 s`
+**You, to your phone:**
+> Find out why Northwind churned. Pull the deal history, their support tickets, any failed
+> payments and their usage curve. Write it up in Notion and put the summary in the thread.
 
-Screen: Chrome on Craigslist, filters set, listings opened one by one, the eight collected.
-Artifact: the answer as a message on your phone, eight bikes with links, two flagged. You read it
-at the table and say nothing; a glance is enough.
+**Screen sequence** (time-lapsed to about 15 seconds):
+1. Terminal: `402 · desktop-2 · $0.148/hr · paying in USDC` → `200 · up in 1.3 s`.
+2. Chrome opens already signed in. HubSpot: the Northwind deal, timeline scrolled, the last
+   three activities read. Pointer with its `agent` tag on every click.
+3. New tab, Zendesk: tickets filtered to Northwind, two open for three weeks, one titled
+   "export still broken". Screenshot taken.
+4. New tab, Stripe: the customer, two failed payments in August, retried, then cancelled.
+5. New tab, Mixpanel: the usage chart, flat since the export ticket opened. Screenshot.
+6. Notion: a new page "Northwind churn" under Customers, four headings filling in, the two
+   screenshots placed, a three-line conclusion at the top.
+7. Slack: the reply in the thread. Four lines and the Notion link.
 
-Tally after: `you $4.50 · agent $0.01`
+**On your phone.** The Slack thread updates while you're stirring the coffee. You read it and say
+nothing. The three-line conclusion is on screen long enough to read:
+> Export broke on Aug 12 (ZD-4471, still open). Usage went flat the same week. Two failed
+> payments after that, then the cancel. They didn't leave over price.
 
-## 2 · The apartment · walking past buildings, or inside a furniture store
+Tally: `you $4.50 · agent $0.04`.
 
-*Solari category: Computer Use, Bring Your Own Environment. Lane: desktop-4 (the creative
-snapshot with Blender preinstalled), $0.274/hr.*
+**Needs.** A demo Slack workspace, a HubSpot portal, a Zendesk trial, Stripe test mode, a
+Mixpanel project and a Notion team, each seeded with the Northwind story and each with a saved
+browser profile. Lane: desktop-2. Expected run: 10 to 14 minutes.
 
-> Open the apartment file in Blender. Move the sofa to the window wall, put the camera at the
-> front door looking in, render it at 1080, and save it to the shared folder.
+**Swap.** If six apps is too many to seed, A5 (the pricing page QA) is three apps and just as
+visual: Webflow staging squeezed through phone, tablet and desktop widths, then a Notion report.
 
-Agent: `402 · desktop-4 · $0.274/hr` → `200 · up in 1.3 s`
+---
 
-Screen: Blender, the sofa selected and slid across, the camera placed, the render bar, the
-image. The agent pointer with its tag on every move. Time-lapsed to about ten seconds.
-Artifact: `render.png`, opened on your phone while you're still in the store.
+## 2 · Personal · the DM · walking, then a bench
 
-Tally after: `you $4.50 · agent $0.07`
+**Trigger, on your phone.** WhatsApp, from Marco:
+> "Lisbon in October? 4 nights 🇵🇹"
 
-## 3 · The price lists · grocery aisle, comparing two things on a shelf
+**You, to your phone, still walking:**
+> Plan Lisbon. Four nights around the second weekend of October. Flights from here, three
+> Airbnbs under a hundred and fifty a night near Alfama, hold the dates in my calendar, start
+> a Splitwise group, put it all in a Notion page, and reply to Marco with the link.
 
-*Solari category: Document Workflows. Lane: desktop-2, $0.148/hr.*
+**Screen sequence** (time-lapsed to about 18 seconds):
+1. `402 · desktop-2 · $0.148/hr` → `200 · up in 1.2 s`.
+2. Skyscanner: the dates, the cheapest sensible pair of flights, times noted.
+3. Airbnb: map dragged to Alfama, filters set, three listings opened, photos glanced at,
+   prices and ratings noted.
+4. Google Maps: each listing to Praça do Comércio, walking times.
+5. Google Calendar: four days blocked, "Lisbon, hold".
+6. Splitwise: a group "Lisbon", you and Marco in it.
+7. Notion: page "Lisbon, October" with the flights, the three stays with photos and walking
+   times, a rough budget, and the Splitwise link.
+8. WhatsApp Web: the reply to Marco, two lines and the link.
 
-> Those three supplier price lists I saved are PDFs. Pull my items out of each one, side by
-> side in a sheet, cheapest supplier highlighted, and export a PDF I can read on my phone.
+**On your phone.** You've sat down on a bench. Marco's reply arrives while you're watching
+something else entirely:
+> "the second one. booking it 😍"
 
-Agent: `402 · desktop-2 · $0.148/hr` → `200 · up in 1.3 s`
+Tally: `you $4.50 · agent $0.09`.
 
-Screen: the PDFs open in Evince, LibreOffice Calc filling column by column, the highlight, the
-export dialog. This is the beat that says "no API": nobody scrapes a PDF from a supplier.
-Artifact: `compare.pdf` on your phone, in the aisle.
+**Needs.** Your own Google account and WhatsApp (both scoped to a saved profile and revoked after
+the shoot), an Airbnb login, Splitwise, Notion. Lane: desktop-2. Expected run: 12 to 18 minutes.
 
-Tally after: `you $31.20 · agent $0.10`
+**Swap.** B3, the wedding photos for your mum, if you want the beat with feeling in it: Google
+Photos face filter into a shared album, link sent on WhatsApp. Three apps, four minutes.
 
-## 4 · The build · lunch, phone flat on the table
+---
 
-*Solari category: Long-Running Automation, End-to-End Testing. Lane: machine-2, $0.126/hr.*
+## 3 · On the spot · the photo · a conference, or anywhere you meet someone
 
-> Run the tests on the shop repo. If they pass, build it and put it on a link I can open
-> from here.
+**Trigger.** You've just been handed a business card. You photograph it, still mid-conversation.
 
-Agent: `402 · machine-2 · $0.126/hr` → `200 · up in 0.8 s`
+**You, quietly, to your phone:**
+> Add them to HubSpot, find them on LinkedIn, draft me a follow-up for tomorrow morning, and
+> hold thirty minutes with them next week.
 
-Screen: the terminal, tests streaming, the build, a preview URL printed on the last line.
-Artifact: the link. You tap it at the lunch table and the site loads. This is the one beat
-where the artifact is opened live on camera; hold the lease until the shot is done.
+**Screen sequence** (time-lapsed to about 12 seconds):
+1. `402 · browser-fast · $0.11/hr` → `200 · up in 1.1 s`.
+2. The photo opens in a tab. Name, company, title, email read off it.
+3. HubSpot: new contact, fields filled, the card photo attached.
+4. LinkedIn: the profile found, headline and last post read, a note added to the contact.
+5. Gmail: a draft to them, three sentences that mention the thing you were actually talking
+   about, scheduled for 9am tomorrow.
+6. Google Calendar: a thirty-minute hold next Tuesday, their name on it.
 
-Tally after: `you $47.80 · agent $0.11`
+**On your phone.** You're still shaking hands. The calendar notification slides in at the top of
+the screen: "Tue 11:00 · Coffee with Dana Whitfield".
 
-## 5 · Finale · park bench, late light · the chain
+Tally: `you $4.50 · agent $0.10`.
 
-*Solari categories: Browser Agents, Document Workflows, chained browser → machine → desktop.
-Lanes: browser-fast, machine-2, desktop-2.*
+**Needs.** The HubSpot demo portal from scene 1, a LinkedIn login (light use, normal pool is
+fine), Gmail and Calendar on your profile. Lane: browser-fast. Expected run: 4 to 6 minutes.
 
-> Take the eight bikes from this morning. Grab each listing's photo, put them on a one-page
-> poster with the prices, and give me the PDF.
+**Swap.** C2, the lunch receipt split on Splitwise with the requests landing on everyone's phone
+at the table, if you'd rather the third beat be with friends than at work.
 
-Agent: three 402s in a row, each paid, each up in about a second. Show all three.
+---
 
-Screen: browser pulling the photos, the machine hashing and resizing them, Inkscape laying
-out the page, the export. The chain is the point, so let each machine appear and disappear.
-Artifact: `poster.pdf`. You look at it on the bench. First and last beats are the same bike.
+## 4 · The receipt · home
 
-Tally after: `you $47.80 · agent $0.15`
+Read the real numbers off the receipts, whatever they are:
 
-## 6 · The receipt · home, laptop or phone
-
-Open the receipts. Read the real numbers, whatever they are on the day; do not round up.
-
-> [Six] machines today. [Fifty-one] minutes between them. It paid [fifteen] cents, from its
-> own account, in USDC on Hedera. Every one of those seconds is on a public ledger, and you
-> don't need me to check it.
+> Three machines today. [Thirty-one] minutes between them. It paid [ten] cents, from its own
+> account, in USDC on Hedera. Every one of those seconds is on a public ledger, and you don't
+> need me to check it.
 >
-> I spent forty-eight dollars on lunch and a bike I didn't buy.
+> I spent four fifty on a coffee.
 
 Card: **Your agent's own live desktop. Paid by the second.** · kleeto.fun
 
 ---
 
-## Production notes
+## Before the shoot
 
-**Shoot the agent side first.** Rehearse each task on a real lease until it completes cleanly,
-record the screen with the pointer overlay, keep the artifacts. Then film your pre-roll to match
-what actually happened. The other way round, you're waiting on a bench for eighteen minutes.
+**Accounts.** One afternoon of setup, once: a demo Slack workspace, HubSpot portal, Zendesk
+trial, Stripe test mode, Mixpanel project, Notion team, all seeded with the Northwind story; your
+own Google, WhatsApp, Airbnb, Splitwise, LinkedIn. Each gets a saved browser profile through
+Solari's login flow, where a human signs in once and the agent never sees the password. On this
+account nothing is connected yet; the setup page is console.getsolari.com/settings/connections.
 
-**The agent.** gpt-6-astra through the Solari MCP tools is proven on exactly this kind of GUI
-chain (Chrome, Calc, chart wizard, PDF export, file manager, an unplanned software install) and
-was honest when a step was impossible. Token cost is irrelevant at this scale.
+**Images.** None of these three scenes needs a custom image; every app is in the browser. The
+custom desktop image (KiCad, FreeCAD, Blender, Audacity) is only for the alternates and gets
+built later. Known so far: a small template builds in 30 seconds, the full toolset fails in
+the builder and goes on a snapshot instead.
 
-**Timings from what we've measured.** Four milestones took astra 18 minutes; every task above is
-sized under that. Task 3 is the slowest: keep the list to eight items, not twenty. Task 2 needs
-the creative snapshot. Task 4 needs a repo with a real test suite and a static build; preview
-URLs are verified working.
+**Order.** Shoot the agent side first. Rehearse each scene on a lease until it completes
+cleanly, record it, keep the artifacts and the receipts. Then film yourself to match what
+actually happened. Otherwise you are on a bench for eighteen minutes.
 
-**The tally.** The agent's figures come from the receipts, never typed in. Your figures are
-whatever you actually spent. If lunch was thirty-one dollars, say thirty-one.
-
-**The handoff UI.** There isn't one, and the video does not need one. You speak; the next thing
-on screen is the real 402 in the real terminal. No phone app, no chat bubble, nothing to fake.
-
-**What to cut if it runs long.** Task 3. Keep the finale; it's the only beat that shows all
-three lanes and closes the loop on the bike.
+**The agent.** gpt-6-astra through the Solari MCP tools: proven on a five-app GUI chain, honest
+when a step was impossible. Token cost is irrelevant at this scale.
