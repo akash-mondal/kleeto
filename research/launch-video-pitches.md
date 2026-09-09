@@ -1,231 +1,234 @@
-# Thirty handoffs for the launch video
+# Thirty handoffs for the launch video, in real apps
 
-Three situations, ten pitches each. Every one drives more than one application or tab, ends in
-a file you can hold up on your phone, buys nothing, and needs none of your logins on camera:
-the Slack ping or DM is forwarded as text and the agent works from that. Lanes are Kleeto's
-three (browser, machine, desktop). Stars mark the ones I'd shoot.
+Three situations, ten each. Every one moves work between applications people actually use, on
+a rented desktop or browser that is already signed in. The first cut of this list used only
+what ships preinstalled; that constraint is gone now that a lease can boot a custom image and a
+browser can open with a saved profile, so the list is rebuilt around the apps themselves.
 
-Grounding: the week's field reports show the same shape over and over. A photo of a Hot Wheels
-car went into a kid's racing game. Zillow photos became a 3D house and a promo video. A floor
-plan became a furnished walkthrough. A schematic became a routed PCB with Gerbers. A reference
-photo was rebuilt in Canva element by element. Picture or message in, real software driven,
-artifact out.
+**What makes this possible now**
+
+- **Signed-in browsers.** Solari keeps saved profiles (cookies plus localStorage) that a session
+  starts with, so the agent lands already logged into Slack, Notion, HubSpot, Gmail, WhatsApp
+  Web and the rest. A connected password manager signs the agent in with no human involved;
+  without one, the agent hands a link to a person who logs in once while it waits, and never
+  sees the credentials. On this account: nothing connected yet, no profiles saved. Setup is at
+  console.getsolari.com/settings/connections, then one login per site.
+- **Custom desktop images.** A template is built from the workstation base with anything apt
+  can install, or a machine is snapshotted after installing by hand. Slack desktop, VS Code,
+  Zoom, DBeaver, Spotify, Telegram, Obsidian, DaVinci Resolve, Kdenlive, KiCad and FreeCAD all
+  run on Linux. The template route with a full toolset is being verified now.
+
+**Rules that stay.** The agent adds to cart and drafts orders but never pays for anything.
+Reservations and free bookings are fine. Use dedicated demo workspaces for the work apps (a
+Slack workspace, a HubSpot portal, a Notion team, a Shopify dev store, Stripe test mode) so a
+session cookie on a rented machine is never a real company's. Personal apps are yours by
+nature; scope one profile per site and revoke after the shoot. Sites with heavy bot defence
+(Ticketmaster, Instagram, LinkedIn at volume) need the stealth pool, which is currently empty;
+everything below works on the normal pool.
+
+Stars mark what I'd shoot.
 
 ---
 
-## A · Work: a Slack ping while you're out
+## A · Work: a Slack ping
 
-**A1 ⭐ The deck.** Slack: "Client moved the review to 4, deck needs the Q3 numbers."
-You: "Q3 numbers are in the shared folder. Update the client deck, keep the template, export
-a PDF, and tell me which slides changed."
-Chain: Calc opens the CSV and builds the chart, Impress opens the deck and takes the chart and
-the new figures on the right slides, export to PDF. Artifact: `deck.pdf` plus a one-line change
-list. Desktop lane. Plays because everyone has had this ping, and template-faithful decks are
-one of Astra's named strengths.
+**A1 ⭐ The churn.** Slack: "Northwind just cancelled. Do we know why?"
+You: "Find out why Northwind churned. Pull the deal history, their support tickets, any failed
+payments and their usage curve, write it up in Notion, and put the summary in the thread."
+Chain: HubSpot (deal timeline), Zendesk (tickets), Stripe (payments), Mixpanel (usage), Notion
+(post-mortem page with screenshots), Slack (reply in thread). Six apps. Plays because each tab
+adds a piece of the answer and the thread reply lands while you're still walking.
 
-**A2 ⭐ The broken checkout.** Slack: "Customer says checkout 500s on staging. Can you look?"
-You: "Walk the signup and checkout on staging in a real browser, screenshot every step, find
-where it breaks, pull the log for that request, and write it up."
-Chain: browser lane drives the flow and records it, machine lane greps the server log for the
-request id, desktop lane writes the bug report in Writer with the screenshots placed. Artifact:
-`bug-report.pdf` and a replay link. All three lanes. Plays because the failure appears on screen
-in real time.
+**A2 ⭐ The design review.** Slack: "Review moved to 3. Can the new screens get into the deck?"
+You: "Export the four onboarding frames from Figma, drop them into the review deck on the
+screens section, keep the template, and reply with the link."
+Chain: Figma (export frames), Google Slides (insert, match layout), Google Drive (link), Slack.
+Plays because a design appears in a deck without anyone touching either.
 
-**A3 The contract redlines.** Slack: "Legal sent v3 of the vendor contract, need a clean copy
-and a list of what changed."
-You: "Compare v3 against v2 in Writer, accept the price and date changes, reject anything
-touching liability, and give me a clean PDF and a change log."
-Chain: Writer's Compare Documents, accept and reject per rule, export clean PDF, second
-document listing every change. Artifact: `contract-clean.pdf`, `changes.pdf`. Desktop lane.
-Plays because document compare is a GUI-only ritual every office knows.
+**A3 The prod bug.** Slack: "Uploads failing for some users since this morning."
+You: "Find the error in Sentry, trace it to the commit, open a Linear ticket with the stack
+trace and the commit link, and reply in the thread with what you found."
+Chain: Sentry (error, first seen), GitHub (blame, PR), Linear (ticket with links), Slack.
+Plays because the culprit commit appears on screen.
 
-**A4 The alert.** Slack, from a bot: "Error rate on api-prod above 5% for 10 min."
-You: "Open the Grafana dashboard, find which endpoint is failing and since when, hit it
-yourself from a machine, and write an incident note with the panels."
-Chain: browser tab on Grafana, second tab on the status page, machine lane curls the endpoint,
-desktop lane writes the note with annotated panel screenshots. Artifact: `incident.pdf`.
-Plays because Grafana already looks like a movie.
+**A4 The overdue invoice.** Slack: "#4471 is 30 days overdue."
+You: "Pull invoice 4471, draft the reminder from our template with the amount and the link,
+log it on the deal, and leave the email for me to send."
+Chain: Stripe (invoice and hosted link), Gmail (draft from template), HubSpot (note on the
+deal), Slack. Stops at the draft. Plays because you approve it from your phone in one tap.
 
-**A5 ⭐ The competitor.** Slack: "Competitor just published new pricing. Comparison by EOD?"
-You: "Pull their pricing page, their docs on limits, and ours, put it in one table, mark where
-they undercut us, and give me a one-page PDF."
-Chain: four browser tabs, Calc table with the undercuts highlighted, export. Artifact:
-`pricing-comparison.pdf`. Browser plus desktop. Plays because the tabs multiply on screen.
+**A5 ⭐ The landing page.** Slack: "New pricing page is on staging, ok to publish?"
+You: "QA the pricing page on staging at phone, tablet and desktop widths, run Lighthouse,
+click every button, screenshot anything broken, and put the report in Notion."
+Chain: Webflow preview, Chrome DevTools device modes, Lighthouse, Notion QA report with
+screenshots, Slack. Plays because the page gets squeezed through three sizes on screen.
 
-**A6 The price lists.** Slack: "Supplier sent the new price PDFs. Margin sheet needs updating."
-You: "Three PDFs in the shared folder. Pull our SKUs out of each, update the margin sheet, flag
-anything that dropped under 20%, and export it."
-Chain: Evince open on each PDF, Calc updating the sheet, conditional highlight, export.
-Artifact: `margins.pdf`. Desktop lane. Plays as the no-API beat: nobody scrapes a supplier PDF.
+**A6 The standup numbers.** Slack: "Standup in 20, who has this week's numbers?"
+You: "Pull this week's signups, activation and revenue, append them to the metrics sheet,
+refresh the chart in the standup deck, and post the three numbers in #standup."
+Chain: Metabase or Mixpanel, Google Sheets (append row), Google Slides (chart refresh), Slack.
+Plays because the chart moves.
 
-**A7 The board rev.** Slack: "Fab deadline is Friday and the USB-C connector has to move to
-the bottom edge."
-You: "Open the board in KiCad, move the USB-C connector to the bottom edge, re-route what
-breaks, run DRC until it's clean, and export the Gerbers."
-Chain: KiCad, DRC loop, Gerber and drill export, machine lane zips them onto a link. Artifact:
-`gerbers.zip` and the DRC report. Desktop plus machine. Highest wow of the set and highest risk:
-the field's PCB runs took hours. Rehearse or drop.
+**A7 The shortlist.** Slack: "42 applicants for the backend role. Anyone good?"
+You: "Score the 42 applicants in Airtable against the job spec. Check GitHub for anyone who
+listed one. Top eight in a view with a line each on why, and post the view link."
+Chain: Airtable, GitHub (profiles, recent repos), Airtable scoring view, Slack. Plays because
+the ranked view fills in.
 
-**A8 The images.** Slack: "Marketing needs the 30 product shots on white at 1200px by
-tomorrow."
-You: "Batch the 30 product shots to 1200 on white, fix by hand any where the cutout goes
-wrong, and put them on a link."
-Chain: machine lane batches them, desktop lane opens the ugly ones in GIMP and fixes them,
-gThumb contact sheet, zip on a preview link. Artifact: the link, opened on your phone.
-Plays because the contact sheet fills in as it works.
+**A8 The demo environment.** Slack: "Prospect wants to try it this afternoon."
+You: "Spin up a demo tenant for Acme on staging, seed it with sample data, create a 30-day
+coupon in Stripe test mode, and draft the welcome email with the link and code."
+Chain: Vercel or the admin panel (tenant), the app itself (seed data through the UI), Stripe
+(coupon), Gmail (draft). Plays because a working product appears for someone who doesn't
+exist yet.
 
-**A9 The new hire.** Slack: "Priya starts Monday, can we have her environment ready?"
-You: "Build a desktop with our toolchain, open every app once and screenshot it working,
-then snapshot it so we can boot copies."
-Chain: machine lane installs, desktop lane opens each app and verifies, snapshot taken.
-Artifact: a snapshot id and a sheet of screenshots. Plays because it shows Kleeto's snapshot
-and fork, and the payoff is "boot ten of these tomorrow."
+**A9 The release notes.** Slack: "Can someone write up what shipped this week?"
+You: "Take this week's merged PRs, watch the ten minutes of Thursday's demo recording that
+covers them, and write the release notes in Notion with a screenshot per feature. Post to
+#announcements."
+Chain: GitHub (merged PRs), Zoom cloud recording (transcript and frames), Notion, Slack.
+Plays because a screenshot lands next to every bullet.
 
-**A10 The reconciliation.** Slack: "Finance: yesterday's payouts CSV doesn't match the
-invoices sheet."
-You: "Match the payouts CSV against the invoices sheet line by line, list every mismatch with
-the difference, and write a two-line summary at the top."
-Chain: Calc with both files, lookup and diff, Writer summary, export. Artifact:
-`reconciliation.pdf`. Desktop lane. Least visual of the ten, most relatable to a finance viewer.
+**A10 The battlecard.** Slack: "Competitor launched. Sales is asking."
+You: "Build a battlecard for the launch: their pricing page, the Product Hunt thread, their
+G2 reviews from the last month, our positioning doc. One Notion page, post it to #sales."
+Chain: competitor site, Product Hunt, G2, Notion (existing doc and new page), Slack. Plays
+because five sources collapse into one page.
 
 ---
 
 ## B · Personal: a DM from someone
 
-**B1 ⭐ The apartment.** DM from a friend: a listing link and "this one?"
-You: "Open the listing, rebuild the floor plan in Blender, put our sofa and the desk in the
-living room at real size, and render it from the door."
-Chain: browser tab on the listing and photos, Blender rebuild and furnishing, render. Artifact:
-`living-room.png`. Browser plus desktop, the creative snapshot. Plays because it is the viral
-Zillow-to-3D demo, done for a real decision you'd actually make.
+**B1 ⭐ The trip.** WhatsApp from a friend: "Lisbon in October? 4 nights."
+You: "Plan Lisbon, four nights around the second weekend of October. Flights from here,
+three Airbnbs under 150 a night near Alfama, hold the dates in my calendar, start a Splitwise
+group, and put the options in a Notion page. Reply to Marco with the link."
+Chain: Skyscanner, Airbnb, Google Maps, Google Calendar, Splitwise, Notion, WhatsApp Web.
+Seven apps. Plays because the reply lands in the chat he sent it from.
 
-**B2 ⭐ The dinner.** DM from your partner: "6 for Saturday, one vegetarian, keep it under 80."
-You: "Plan Saturday dinner for six, one vegetarian, under eighty. Pick the recipes, price the
-list at the store's site, and make me a shopping list and a menu card."
-Chain: recipe tabs, the grocer's site for prices, Calc list with running total, Inkscape menu
-card, PDF. Artifact: `list.pdf`, `menu.pdf`. Browser plus desktop. Plays in a supermarket.
+**B2 The dinner.** WhatsApp from your partner: "Kims on Saturday?"
+You: "Book a table for four on Saturday at eight somewhere Korean within twenty minutes,
+rated over four and a half. Put it in both our calendars and send the Kims the address."
+Chain: Google Maps, OpenTable (reservation), Google Calendar (two invites), WhatsApp. Plays
+because a reservation is a real-world outcome with no money moving.
 
-**B3 The road trip.** DM: "still up for the coast drive? 4 days"
-You: "Plan four days down the coast. Route it, pick a stop each night under two hours' drive
-apart, and give me an itinerary with drive times and a map for each day."
-Chain: OpenStreetMap routing, Wikipedia for the stops, Calc itinerary, Writer with map
-screenshots, PDF. Artifact: `itinerary.pdf`. Browser plus desktop. Plays because the map
-screenshots stack up on the page.
+**B3 ⭐ The wedding photos.** WhatsApp from your mum: "can you send me the wedding photos of
+us"
+You: "Find the wedding photos with Mum and Dad in Google Photos, put them in a shared album,
+and send her the link."
+Chain: Google Photos (album, face filter), shared link, WhatsApp. Three apps, one of the most
+relatable asks alive. Plays because the album fills with the right faces.
 
-**B4 The lease.** DM from the landlord: "renewal attached, sign by the 15th"
-You: "Compare the renewal against last year's lease, list every clause that changed with the
-old and new wording side by side, and flag anything about rent, deposit or notice."
-Chain: Evince on both, Writer compare, side-by-side table, PDF. Artifact: `lease-changes.pdf`.
-Desktop lane. Plays as the moment the agent catches the clause you'd have missed.
+**B4 The camera.** DM from a friend: "you never use that camera, sell it"
+You: "Price my camera body against the last month of sold listings on eBay, write the
+listing with the specs from the manufacturer's page, make the cover photo in Canva, and draft
+it on eBay up to the publish button."
+Chain: eBay sold listings, manufacturer site, Canva, eBay draft. Stops before publish, on
+purpose. Plays because the listing photo appears in Canva.
 
-**B5 ⭐ The listing.** DM from a friend: "selling my bike, can you help me list it?"
-You: "Take the six photos, fix the exposure and crop them square, write a listing with the
-specs from the manufacturer's page, and draft it on Craigslist up to the post button."
-Chain: GIMP on the photos, browser tab on the manufacturer's spec page, Writer for the copy,
-browser drafting the listing and stopping before submit. Artifact: the draft on screen and
-the edited photos. Desktop plus browser. Plays because it stops one click short, on purpose.
+**B5 The gift.** DM from your brother: "dad's 60th, ideas? budget 150 split"
+You: "Shortlist five gifts for Dad under 150 from his Amazon wishlist and Etsy, put them in
+a Notion page with photos and prices, and send Rahul a WhatsApp poll."
+Chain: Amazon (wishlist, reviews), Etsy, Notion, WhatsApp (poll). Plays because the poll
+appears in the chat.
 
-**B6 The invite.** DM: "Sam's 30th, 20 people, can you make something?"
-You: "Design a party invite for Sam's 30th, put the bar's address on it with a map, and give
-me a PNG for the group chat and a PDF to print."
-Chain: browser tab on the map, Inkscape design, exports at two sizes. Artifact: `invite.png`,
-`invite.pdf`. Plays because you watch a design appear.
+**B6 The concert.** DM: "they're playing Friday, in?"
+You: "Check whether Friday's show still has tickets and what they cost, check my calendar
+for a clash, estimate the Uber home after, and reply with a yes or no and the numbers."
+Chain: the venue's site or Eventbrite, Google Calendar, Uber estimate, WhatsApp. Plays because
+the answer is one line and the working is four apps.
 
-**B7 The phone stand.** DM from a friend: "want a phone stand for my desk, phone is
-147 by 71, can you print one?"
-You: "Model a phone stand for a phone 147 by 71 with a 15 degree lean, export the STL, check
-the mesh is printable, and put it on a link with a viewer."
-Chain: Blender or FreeCAD model, STL export, machine lane checks the mesh and serves a viewer
-on a preview link. Artifact: `stand.stl` and the link, spun on your phone. Desktop plus
-machine. Plays because a physical object appears from a text message.
+**B7 The reel.** DM from a friend: an Instagram reel of a recipe and "make this"
+You: "Pull the recipe out of this reel, scale it for six, add the ingredients to an Instacart
+cart, and put the recipe in my Notion cookbook."
+Chain: Instagram (reel, captions), Notion, Instacart (cart, no checkout). Plays because a
+video becomes a shopping cart.
 
-**B8 The hike photos.** DM from your brother: "send the hike photos but make them look good"
-You: "Fix the exposure on the forty hike photos, straighten the horizons, make a contact
-sheet, and put the lot on a link."
-Chain: machine lane batches, GIMP fixes the bad ones, gThumb contact sheet, link. Artifact:
-the contact sheet and the link. Plays as the before-and-after grid.
+**B8 The bill.** DM from your roommate: "electric bill?"
+You: "Get this month's electricity bill from the utility portal, split it three ways in
+Splitwise, and send Sam the breakdown."
+Chain: utility portal (signed in), Splitwise, WhatsApp. Plays because a boring chore ends in
+ten seconds.
 
-**B9 The flight.** DM from a sibling: "flight's at 6am, drive or train?"
-You: "For a 6am flight from ours, compare driving with parking against the first train:
-door to gate time and cost. One line answer and the working."
-Chain: train timetable site, map routing, airport parking page, Calc comparison, PDF.
-Artifact: the answer as a message, the working attached. Browser plus desktop. Plays because
-the answer arrives while you're mid-sentence about something else.
+**B9 The half marathon.** DM from a running friend: "you in for the half in March?"
+You: "Pull my last three months from Strava, build a twelve-week plan to a half in March in
+Google Sheets, put the long runs in my calendar, and send Priya the plan."
+Chain: Strava, Google Sheets, Google Calendar, WhatsApp. Plays because your own data drives
+the plan.
 
-**B10 The episode.** DM: "can you turn my podcast episode into a post?"
-You: "Watch the episode, pull the six best moments with a screenshot for each, and write it
-up as a post with the screenshots placed."
-Chain: browser on the video, screenshots, Writer article, PDF. Artifact: `post.pdf`. This is
-the voice-to-article pattern from the field, on a rented desktop.
+**B10 The move.** DM from your partner: "rent's going up 12%"
+You: "Compare staying against the six two-beds on Zillow under our new rent within a
+thirty-minute commute of both our offices, with commute times, in a sheet. Send her the top
+three."
+Chain: Zillow, Google Maps (two commutes each), Google Sheets, WhatsApp. Plays because the
+sheet has a column for each of you.
 
 ---
 
-## C · On the spot: you take a photo and ask
+## C · On the spot: a photo
 
-**C1 ⭐ The sofa in the store.** Photo of a sofa at the furniture shop.
-You: "Does this fit in the living room? Find its dimensions, put it in the apartment model at
-size, and render it where ours is now."
-Chain: browser tab for the product's dimensions, Blender places it in the model from B1,
-render. Artifact: `sofa.png`, on your phone in the aisle. Browser plus desktop. Plays because
-it answers the exact question you're standing there asking, and pays off B1.
+**C1 ⭐ The business card.** Photo of a card at a conference.
+You: "Add them to HubSpot, find them on LinkedIn, draft a follow-up for tomorrow morning,
+and hold thirty minutes with them next week."
+Chain: HubSpot (contact), LinkedIn (profile), Gmail (scheduled draft), Google Calendar (hold).
+Plays because you're shaking the next hand while it works.
 
-**C2 ⭐ The napkin logo.** Photo of a logo sketch on a napkin.
-You: "Vectorise this, clean up the curves, give me it in black and in our amber, and mock it
-on a T-shirt and a business card."
-Chain: GIMP cleanup, Inkscape trace and redraw, GIMP mockups, exports. Artifact: `logo.svg`,
-`mockups.png`. Desktop lane. Plays because a napkin becomes a brand in a minute.
+**C2 ⭐ The receipt.** Photo of the lunch receipt.
+You: "Split this between the four of us, Anna's on the veggie, and request the money."
+Chain: Splitwise (itemised split), WhatsApp (requests to each). Plays because everyone's phone
+buzzes at the table.
 
-**C3 The whiteboard.** Photo of a flowchart on a whiteboard after a meeting.
-You: "Redraw this as a clean diagram, same boxes and arrows, and give me an SVG and a PDF."
-Chain: gThumb to read it, Dia or Inkscape to draw it, exports. Artifact: `flow.svg`. Desktop
-lane. Plays because the whiteboard and the clean diagram sit side by side.
+**C3 The sofa.** Photo of a sofa in the store.
+You: "Find this sofa on their site, check it fits the living room, compare the price online,
+and put it in the flat's Notion page with the render."
+Chain: retailer's site (model, dimensions, stock), Blender (room model, render), Google
+Shopping, Notion. Plays because "does it fit" gets a picture, not a number.
 
-**C4 ⭐ The used bike.** Photo of a bike with a price tag at a shop.
-You: "Is this a fair price? Find the model, check what it's listing for on Craigslist and the
-manufacturer's site, and give me a range and a yes or no."
-Chain: three browser tabs, Calc range, answer. Artifact: the answer and a small table.
-Browser plus desktop. Plays because you get the answer before the shopkeeper comes back.
+**C4 The whiteboard.** Photo of the whiteboard after a meeting.
+You: "Rebuild this on the team FigJam, write the action items into Linear assigned to whoever's
+initials are on them, and post both links in #product."
+Chain: FigJam, Linear, Slack. Plays because initials on a whiteboard become tickets with
+owners.
 
-**C5 The shelf.** Photo of a product on a shelf with its price.
-You: "Am I better off buying this here or online? Check three sites including shipping and
-tell me, with the working."
-Chain: three tabs, Calc comparison, answer. Artifact: the table. Browser plus desktop. Plays
-in the "shopping" beat without buying a thing.
+**C5 The poster.** Photo of a gig poster on a wall.
+You: "Are there tickets for this? Check my calendar, and if I'm free put a hold in and send the
+group the link."
+Chain: the venue's site, Google Calendar, WhatsApp group. Plays because a poster becomes a
+plan.
 
-**C6 The receipt.** Photo of a lunch receipt.
-You: "Add this to the month's expenses, split it into food and drink, and rebuild the chart."
-Chain: machine lane OCRs it, Calc appends and recategorises, chart, PDF. Artifact:
-`expenses.pdf`. Plays because the chart updates while you're still at the table.
+**C6 The bookshop.** Photo of a book cover.
+You: "Is this worth it? Goodreads rating, cheapest price online, and whether the library has
+it on Libby."
+Chain: Goodreads, Bookshop or Amazon, Libby. Plays because the answer is "the library has
+it, free, Thursday."
 
-**C7 The floor plan.** Photo of a floor plan on a wall in a show flat, or a sketch.
-You: "Build this in 3D, furnish it plainly, and render it from the front door."
-Chain: Blender build and furnish, render. Artifact: `plan.png`. Desktop, creative snapshot.
-This is the floor-plan-to-walkthrough demo from the field, on a rented machine. Big wow,
-longest rehearsal.
+**C7 The dashboard light.** Photo of a warning light on the car.
+You: "What is this, how urgent, book the nearest garage that can look at it this week, and
+put it in my calendar."
+Chain: the manufacturer's manual online, Google Maps (garages), the garage's booking page,
+Google Calendar. Plays because the calendar entry appears while you're still in the car.
 
-**C8 The breadboard.** Photo of a circuit on a breadboard.
-You: "Draw the schematic for this in KiCad, find the part numbers, and give me a BOM with
-prices from the distributor's site."
-Chain: KiCad schematic, distributor tabs for parts, Calc BOM, PDF. Artifact: `schematic.pdf`,
-`bom.pdf`. Desktop plus browser. Hardware wow, high risk.
+**C8 The bike part.** Photo of a broken part on the bike.
+You: "Identify this, find the exact part on the maker's site and one shop that has it in
+stock, add it to the cart, and save the fitting video to my Notion."
+Chain: manufacturer site, a bike shop (cart, no checkout), YouTube, Notion. Plays because a
+broken thing gets a plan.
 
-**C9 The old photo.** Photo of a damaged print in a frame at a relative's house.
-You: "Restore this, fix the tear and the fading, and give me a clean version and one
-colourised."
-Chain: machine lane upscales, GIMP heals the tear and corrects, colour pass, exports.
-Artifact: `restored.png`, `colour.png`. Plays because it is the one beat with feeling in it.
+**C9 The colleague's screen.** Photo of an error on a colleague's laptop.
+You: "Find this error in Sentry, see if it's already filed, if not open a GitHub issue with the
+screenshot, and tell Jamie in Slack what it is."
+Chain: Sentry, GitHub issues, Slack. Plays because it's the office version of the bike part.
 
-**C10 The broken part.** Photo of a broken part on your bike or a bag.
-You: "What part is this, where do I get it, and how do I fit it? Find the part number on the
-maker's site, a shop that has it, and make me a one-page how-to with the diagram."
-Chain: maker's site, a shop's site, Writer how-to with the exploded diagram placed, PDF.
-Artifact: `fix.pdf`. Browser plus desktop. Plays because it's the thing you'd actually ask
-standing there with a broken bag.
+**C10 The grocery list.** Photo of a handwritten list on the fridge.
+You: "Build this as an Instacart cart from our usual store, swap anything out of stock for
+the closest thing, and add the total to Splitwise."
+Chain: Instacart (cart, no checkout), Splitwise. Plays because handwriting becomes a cart.
 
 ---
 
-## If I were choosing the three
+## What I'd shoot
 
-A2 the broken checkout (all three lanes, failure visible live), B1 the apartment (the viral
-demo done for a real decision), C1 the sofa in the store (answers the question you're
-standing there asking, and pays off B1). Alternates: A1, B5, C2.
+A1 the churn (six apps, one answer), B1 the trip (seven apps, the reply lands in the chat it
+came from), C1 the business card (four apps while you're still shaking hands). Alternates:
+A5, B3, C2. Every one needs the profiles set up first; that is a one-time afternoon of
+logging into demo workspaces, and then the whole list is open.
