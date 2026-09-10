@@ -38,25 +38,39 @@ export function priceInAssets({ tinybar, usdPerHbar }) {
  */
 export function buildChallenge({ net, payTo, feePayer, resource, description, tinybar, usdPerHbar, maxTimeoutSeconds = 120 }) {
   const price = priceInAssets({ tinybar, usdPerHbar });
+  // v2 names the field `amount`; v1 called it `maxAmountRequired`. Both go out, because the
+  // client reads `amount` and a human reading the body with curl may be looking for either.
   const common = { scheme: "exact", network: net.caip2, resource, description, mimeType: "application/json", payTo, maxTimeoutSeconds };
+  const offer = (amount, asset, extra) => ({
+    ...common, amount, maxAmountRequired: amount, asset, extra: { feePayer, ...extra },
+  });
   return {
     x402Version: X402_VERSION,
     accepts: [
-      { ...common, maxAmountRequired: price.usdc, asset: net.usdc,
-        extra: { feePayer, name: "USDC", decimals: USDC_DECIMALS, symbol: "USDC" } },
-      { ...common, maxAmountRequired: price.hbar, asset: HBAR_ASSET,
-        extra: { feePayer, name: "HBAR", decimals: HBAR_DECIMALS, symbol: "HBAR" } },
+      offer(price.usdc, net.usdc, { name: "USDC", decimals: USDC_DECIMALS, symbol: "USDC" }),
+      offer(price.hbar, HBAR_ASSET, { name: "HBAR", decimals: HBAR_DECIMALS, symbol: "HBAR" }),
     ],
     error: "payment required",
   };
 }
 
-/** The `X-PAYMENT` header is base64 JSON; a malformed one is the client's fault, not a 500. */
-export function decodePaymentHeader(header) {
-  if (!header) return null;
+/**
+ * Pull the payment off the request.
+ *
+ * v2 clients send `PAYMENT-SIGNATURE`; v1 sent `X-PAYMENT`. Both are read, because refusing
+ * the older header would turn a working older agent into a payment loop it cannot escape.
+ * A malformed header is the client's fault and returns null, not a 500.
+ */
+export function decodePaymentHeader(headers) {
+  const raw = typeof headers === "string"
+    ? headers
+    : (headers?.("PAYMENT-SIGNATURE") ?? headers?.("X-PAYMENT"));
+  if (!raw) return null;
   try {
-    const payload = JSON.parse(Buffer.from(header, "base64").toString("utf8"));
-    if (!payload?.scheme || !payload?.network) return null;
+    const payload = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+    // v2 nests the chosen offer under `accepted`; v1 put scheme and network at the top.
+    const chosen = payload?.accepted ?? payload;
+    if (!chosen?.scheme || !chosen?.network) return null;
     return payload;
   } catch {
     return null;
@@ -100,11 +114,21 @@ export class Facilitator {
  * against the wrong entry.
  */
 export function matchRequirements(challenge, payload) {
-  const asset = payload?.payload?.asset ?? payload?.asset;
+  const chosen = payload?.accepted ?? payload;
+  const asset = chosen?.asset;
   const candidates = challenge.accepts.filter(
-    (a) => a.scheme === payload.scheme && a.network === payload.network,
+    (a) => a.scheme === chosen.scheme && a.network === chosen.network,
   );
   if (!candidates.length) return null;
-  if (!asset) return candidates[0];
-  return candidates.find((a) => a.asset === asset) ?? null;
+  const match = asset ? candidates.find((a) => a.asset === asset) : candidates[0];
+  if (!match) return null;
+
+  /**
+   * Return our own offer, never the client's echo of it.
+   *
+   * `accepted` arrives from the client and a client can put anything in it, including an
+   * amount of one. Verification has to run against the terms the server set, so the echo is
+   * used only to work out which of the two offers is being answered.
+   */
+  return match;
 }

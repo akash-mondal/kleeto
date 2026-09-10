@@ -63,8 +63,36 @@ for (const e of ["open", "tick", "low", "exhausted", "anchor", "paid", "closed"]
  */
 let feePayer = null;
 
+/**
+ * A 402, the way a v2 client reads one.
+ *
+ * The challenge travels in the `PAYMENT-REQUIRED` header as base64 JSON; the body is only
+ * consulted for x402 v1. Sending the body alone is the difference between a client that pays
+ * and one that reports "invalid payment required response", so both go out: the header for
+ * machines, the body for anyone reading with curl.
+ */
+/**
+ * Put the caller's preferred asset first. Both are always offered: a preference reorders the
+ * list, it never removes an option, so an agent that cannot satisfy its first choice can still
+ * pay with the other.
+ */
+function orderByPreference(challenge, prefer) {
+  if (!prefer) return challenge;
+  const want = String(prefer).toLowerCase();
+  const accepts = [...challenge.accepts].sort((a, b) =>
+    ((b.extra?.symbol ?? "").toLowerCase() === want ? 1 : 0) -
+    ((a.extra?.symbol ?? "").toLowerCase() === want ? 1 : 0));
+  return { ...challenge, accepts };
+}
+
+function challenge402(c, challenge, extra = {}) {
+  c.header("PAYMENT-REQUIRED", Buffer.from(JSON.stringify(challenge)).toString("base64"));
+  c.header("Cache-Control", "no-store");
+  return c.json({ ...challenge, ...extra }, 402);
+}
+
 const app = new Hono();
-app.use("*", cors({ origin: "*", allowHeaders: ["X-PAYMENT", "Content-Type"], exposeHeaders: ["X-PAYMENT-RESPONSE"] }));
+app.use("*", cors({ origin: "*", allowHeaders: ["PAYMENT-SIGNATURE", "X-PAYMENT", "Content-Type"], exposeHeaders: ["PAYMENT-REQUIRED", "PAYMENT-RESPONSE", "X-PAYMENT-RESPONSE"] }));
 
 app.get("/healthz", (c) => c.json({
   ok: true, network: net.caip2, feePayer, origin: ORIGIN,
@@ -131,26 +159,26 @@ app.post("/v1/sessions/:id/topup", async (c) => {
   const tinybar = Math.max(1, Math.ceil(Number(body.tinybar ?? 100_000_000)));   // default 1 HBAR
 
   const cat = await catalogue(net);
-  const challenge = buildChallenge({
+  const challenge = orderByPreference(buildChallenge({
     net, payTo: PAY_TO, feePayer,
     resource: `${ORIGIN}/v1/sessions/${s.id}/topup`,
     description: `top up session ${s.id}`,
     tinybar, usdPerHbar: cat.usdPerHbar,
-  });
+  }), c.req.query("prefer"));
 
-  const payment = decodePaymentHeader(c.req.header("X-PAYMENT"));
-  if (!payment) return c.json(challenge, 402);
+  const payment = decodePaymentHeader((h) => c.req.header(h));
+  if (!payment) return challenge402(c, challenge);
 
   const requirements = matchRequirements(challenge, payment);
-  if (!requirements) return c.json({ ...challenge, error: "payment does not match any offered asset" }, 402);
+  if (!requirements) return challenge402(c, challenge, { error: "payment does not match any offered asset" });
 
   const v = await facilitator.verify(payment, requirements);
   if (!v.ok || v.body?.isValid === false) {
-    return c.json({ ...challenge, error: "payment rejected", reason: v.body?.invalidReason ?? v.body }, 402);
+    return challenge402(c, challenge, { error: "payment rejected", reason: v.body?.invalidReason ?? v.body });
   }
   const settled = await facilitator.settle(payment, requirements);
   if (!settled.ok || settled.body?.success === false) {
-    return c.json({ ...challenge, error: "settlement failed", reason: settled.body?.errorReason ?? settled.body }, 402);
+    return challenge402(c, challenge, { error: "settlement failed", reason: settled.body?.errorReason ?? settled.body });
   }
   const txId = settled.body?.transaction ?? settled.body?.transactionId ?? null;
   const balance = s.credit(tinybar, { transaction: txId, asset: requirements.extra?.symbol });
@@ -164,7 +192,9 @@ app.post("/v1/sessions/:id/topup", async (c) => {
       store.patch(l.id, { state: "open", pausedReason: null });
     }
   }
-  c.header("X-PAYMENT-RESPONSE", Buffer.from(JSON.stringify({ success: true, transaction: txId, network: net.caip2 })).toString("base64"));
+  const settleHeader = Buffer.from(JSON.stringify({ success: true, transaction: txId, network: net.caip2 })).toString("base64");
+  c.header("PAYMENT-RESPONSE", settleHeader);
+  c.header("X-PAYMENT-RESPONSE", settleHeader);
   return c.json({
     sessionId: s.id, creditedTinybar: tinybar, balanceTinybar: balance,
     asset: requirements.extra?.symbol,
@@ -288,33 +318,32 @@ app.post("/v1/leases", async (c) => {
     if (sess.balanceTinybar < priced.creditTinybar * 30) {
       // Refuse to open a machine that cannot run for half a minute; the agent should top up
       // first rather than watch it pause immediately.
-      return c.json({
-        ...buildChallenge({ net, payTo: PAY_TO, feePayer,
-          resource: `${ORIGIN}/v1/sessions/${sessionId}/topup`,
-          description: `top up session ${sessionId}`,
-          tinybar: Math.max(priced.creditTinybar * 300, 100_000_000), usdPerHbar: cat.usdPerHbar }),
+      return challenge402(c, buildChallenge({ net, payTo: PAY_TO, feePayer,
+        resource: `${ORIGIN}/v1/sessions/${sessionId}/topup`,
+        description: `top up session ${sessionId}`,
+        tinybar: Math.max(priced.creditTinybar * 300, 100_000_000), usdPerHbar: cat.usdPerHbar }), {
         error: "session balance too low to open this lane",
         balanceTinybar: sess.balanceTinybar,
         needTinybarPerSec: priced.creditTinybar,
-      }, 402);
+      });
     }
   } else {
-    const payment = decodePaymentHeader(c.req.header("X-PAYMENT"));
-    if (!payment) return c.json(challenge, 402);
+    const payment = decodePaymentHeader((h) => c.req.header(h));
+    if (!payment) return challenge402(c, challenge);
 
     requirements = matchRequirements(challenge, payment);
     if (!requirements) {
-      return c.json({ ...challenge, error: "payment does not match any offered asset" }, 402);
+      return challenge402(c, challenge, { error: "payment does not match any offered asset" });
     }
 
     const v = await facilitator.verify(payment, requirements);
     if (!v.ok || v.body?.isValid === false) {
-      return c.json({ ...challenge, error: "payment rejected", reason: v.body?.invalidReason ?? v.body }, 402);
+      return challenge402(c, challenge, { error: "payment rejected", reason: v.body?.invalidReason ?? v.body });
     }
 
     const settled = await facilitator.settle(payment, requirements);
     if (!settled.ok || settled.body?.success === false) {
-      return c.json({ ...challenge, error: "settlement failed", reason: settled.body?.errorReason ?? settled.body }, 402);
+      return challenge402(c, challenge, { error: "settlement failed", reason: settled.body?.errorReason ?? settled.body });
     }
     txId = settled.body?.transaction ?? settled.body?.txHash ?? settled.body?.transactionId ?? null;
   }
@@ -365,7 +394,9 @@ app.post("/v1/leases", async (c) => {
     console.error("white-label leak in lease response:", leak);
     return c.json({ error: "internal" }, 500);
   }
-  c.header("X-PAYMENT-RESPONSE", Buffer.from(JSON.stringify({ success: true, transaction: txId, network: net.caip2 })).toString("base64"));
+  const settleHeader = Buffer.from(JSON.stringify({ success: true, transaction: txId, network: net.caip2 })).toString("base64");
+  c.header("PAYMENT-RESPONSE", settleHeader);
+  c.header("X-PAYMENT-RESPONSE", settleHeader);
   return c.json({ ...out, settlement: txId ? { transaction: txId, explorer: hashscanTx(net, txId) } : null }, 201);
 });
 

@@ -147,8 +147,33 @@ The chain head goes to a public topic every sixty seconds rather than every seco
 per second would cost $0.36 an hour in consensus fees against a machine that costs $0.063, and
 anchoring the head of a chain proves everything under it anyway.
 
+## Settled, on testnet
+
+Both assets have been paid end to end by a real agent account through Blocky402, and the
+transfers are on the public ledger.
+
+| | USDC | HBAR |
+|---|---|---|
+| Transaction | [`0.0.7162784-1789034955-981424814`](https://hashscan.io/testnet/transaction/0.0.7162784-1789034955-981424814) | [`0.0.7162784-1789035068-807499091`](https://hashscan.io/testnet/transaction/0.0.7162784-1789035068-807499091) |
+| Moved | 45,743 USDC units, agent → gateway | 60,000,000 tinybar, agent → gateway |
+| Gas | 1,442,854 tinybar, paid by the facilitator | 262,336 tinybar, paid by the facilitator |
+| Result | SUCCESS | SUCCESS |
+
+The gas line is the point. In both cases the network fee came out of the facilitator's
+account, not the agent's, which is what lets an agent hold only USDC and still transact.
+
+Accounts on testnet: gateway `0.0.7284970`, checkpoints topic
+[`0.0.10454763`](https://hashscan.io/testnet/topic/0.0.10454763).
+
+### A note for client authors
+
+The x402 client's spend controls price a payment in USD to enforce a cap, and they can only
+price the network's *default* asset, which on Hedera is USDC. Left on, they silently filter
+the HBAR half of the offer and the agent pays in USDC whatever it asked for. An agent that
+means to pay in HBAR needs `setSpendControls(false)` or a cap it can apply to both assets.
+Kleeto always offers both; the choice is the client's to make and the client's to lose.
+
 ## Not yet live
 
-- Settlement is untested end to end: it needs a funded Hedera account for `payTo`.
-- HCS anchoring is wired to a hook but has no topic configured.
+- HCS anchoring is wired to a hook and has a topic, but the writer is not built.
 - Signed receipts (JWS, `did:hedera` kid) are not built.
