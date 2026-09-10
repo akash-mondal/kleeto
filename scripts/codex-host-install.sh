@@ -23,8 +23,8 @@ startup_timeout_sec = 120
 SOLARI_API_KEY = "$SOLARI_API_KEY"
 TOML
 chmod 600 "$PAY"/*
-scp -q -i "$KEY" -r "$PAY" "kleeto@$HOST:/home/kleeto/codex-payload"
-ssh -i "$KEY" "kleeto@$HOST" 'set -e
+scp -q -i "$KEY" -o StrictHostKeyChecking=accept-new -r "$PAY" "kleeto@$HOST:/home/kleeto/codex-payload"
+ssh -i "$KEY" -o StrictHostKeyChecking=accept-new "kleeto@$HOST" 'set -e
   sudo install -o codex -g codex -m 600 ~/codex-payload/auth.json /home/codex/.codex/auth.json
   sudo install -o codex -g codex -m 600 ~/codex-payload/config.toml /home/codex/.codex/config.toml
   rm -rf ~/codex-payload

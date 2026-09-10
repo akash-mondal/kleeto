@@ -16,6 +16,7 @@ cat > "$CLOUD_INIT" <<'YAML'
 #cloud-config
 package_update: true
 users:
+  - default          # keep Azure's admin user; a users: list without this replaces it
   - name: codex
     shell: /bin/bash
     lock_passwd: true
