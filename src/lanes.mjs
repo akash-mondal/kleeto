@@ -17,6 +17,23 @@ import { hbarUsd } from "./networks.mjs";
 const COST = { vcpuHour: 0.035, gbHour: 0.011, screenHour: 0.02, browserHour: 0.10 };
 const MARGIN = 1.10;
 
+/**
+ * The maximum-stealth browser comes from a second supplier, browser-use, because the first
+ * one's stealth fleet has never had capacity (see research/kleeto-solari-surface.md §C).
+ * Measured 2026-09-10: it clears Cloudflare, PerimeterX, openai.com and indeed where the
+ * fast pool gets a 403, with residential egress and automatic CAPTCHA solving on by default.
+ */
+const STEALTH_COST = { browserHour: 0.02, proxyGb: 5.00 };
+
+/**
+ * Bandwidth is the whole cost of that lane and it is billed per gigabyte, which a per-second
+ * quote cannot absorb: one measured session moved 63 MB and was billed $0.31 of proxy against
+ * $0.0003 of browser time. So the lane carries a hard ceiling. The quote assumes this budget,
+ * the lease stops at the cap, and the agent signs for a price it can actually be held to.
+ */
+const STEALTH_MB_PER_MIN = 5;      // measured: 37.7 MB over a five-site run
+const STEALTH_MB_CEILING = 250;    // ~50 min at the budgeted rate; the lease halts here
+
 const perSec = (vcpu, gb, screen = false) =>
   (vcpu * COST.vcpuHour + gb * COST.gbHour + (screen ? COST.screenHour : 0)) / 3600;
 
@@ -35,13 +52,18 @@ export const LANES = {
                  resolution: "1280x720" },
   "desktop-4": { family: "desktop", vcpu: 4, memGiB: 8,  costPerSecUsd: perSec(4, 8, true),
                  resolution: "1920x1080" },
-  "browser-fast": { family: "browser", pool: "fast", stealth: false,
+  // The everyday browser: a flat upstream rate with no bandwidth meter behind it, so a long
+  // lease can never cost more than its seconds. Blocked by Cloudflare and friends.
+  "browser-fast": { family: "browser", vendor: "solari", pool: "fast", stealth: false,
                     costPerSecUsd: COST.browserHour / 3600 },
-  // browser-stealth is deliberately absent. It is no longer plan-gated (the key is on
-  // Starter as of 2026-09-07), but the pool has nothing in it: POST /sessions {stealth:true}
-  // answers 503 "No stealth pool available", fleet empty, on every attempt. Upstream also
-  // publishes no per-second number for it. A lane that cannot be served or measured is not
-  // a lane; it ships when both hold.
+  // The escalation, for when a site turns the fast pool away. Everything on: hardened
+  // Chromium, residential proxy, automatic CAPTCHA. About nineteen times the fast pool per
+  // second, essentially all of it bandwidth, which is why it is a separate lane the agent
+  // opts into after a 403 rather than a default anyone pays for by accident.
+  "browser-max": { family: "browser", vendor: "browser-use", stealth: true, captcha: true,
+                   residential: true, mbCeiling: STEALTH_MB_CEILING,
+                   costPerSecUsd: STEALTH_COST.browserHour / 3600
+                                + (STEALTH_MB_PER_MIN / 60 / 1024) * STEALTH_COST.proxyGb },
 };
 
 /** Round to whole tinybar, never below 1 — sub-tinybar precision cannot be settled. */
