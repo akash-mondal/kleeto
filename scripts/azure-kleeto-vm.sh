@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# A machine of Kleeto's own: new resource group, Ubuntu 24.04. D2alds_v7 in eastus2 is the
-# one small size this subscription is still allowed to create; every B-series is restricted., SSH only from the given IPs,
+# A machine of Kleeto's own: new resource group, Ubuntu 24.04, SSH only from the given IPs,
 # Node 22 and codex pinned at first boot, and a dedicated `codex` user for the agent so its
 # tokens and full-disk sandbox never share a home with anything else.
+#
+# D2alds_v7 in eastus2 is the one small size this subscription is still allowed to create;
+# every B-series is restricted in both regions already in use.
 #
 #   scripts/azure-kleeto-vm.sh [size] [location] [ip1,ip2,...]
 set -euo pipefail
