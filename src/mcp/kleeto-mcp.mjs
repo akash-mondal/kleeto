@@ -164,6 +164,25 @@ const TOOLS = {
     run: async ({ leaseId }) => call(`/v1/leases/${leaseId}/stop`, { method: "POST" }),
   },
 
+  kleeto_deliver: {
+    description:
+      "Hand a finished file to the person watching. The machine goes back when you return it and " +
+      "everything on it goes with it, so anything they are meant to keep has to be delivered " +
+      "before then. Give the path on the machine; they get a download link. Deliver the finished " +
+      "thing, not your working files.",
+    schema: {
+      type: "object",
+      required: ["leaseId", "path"],
+      properties: {
+        leaseId: { type: "string" },
+        path: { type: "string", description: "Where the file is on the rented machine." },
+        as: { type: "string", description: "Optional: the name they should see it under." },
+      },
+    },
+    run: async ({ leaseId, path, as }) =>
+      call(`/v1/leases/${leaseId}/deliver`, { method: "POST", body: { path, as } }),
+  },
+
   /* ------------------------------------------------------------- talking to a person ---- */
 
   kleeto_say: {

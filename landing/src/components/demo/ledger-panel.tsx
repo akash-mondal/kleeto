@@ -19,6 +19,7 @@ const VERB: Record<RunEvent["kind"], string> = {
   topup: "paid in",
   rent: "took",
   return: "gave back",
+  file: "handed over",
 };
 
 export function LedgerPanel({ events, phase }: { events: RunEvent[]; phase: string }) {
@@ -50,6 +51,8 @@ export function LedgerPanel({ events, phase }: { events: RunEvent[]; phase: stri
                     <span className="text-white/40">{VERB[e.kind]} </span>
                     {e.kind === "topup"
                       ? `${e.asset ?? "HBAR"} for ${hbar(e.tinybar)} HBAR of credit`
+                      : e.kind === "file"
+                        ? `${e.name} · ${((e.bytes ?? 0) / 1024).toFixed(0)} kB`
                       : e.kind === "rent"
                         ? `${e.lane}${e.image && e.image !== "base" ? ` · ${e.image}` : ""}`
                         : `${e.lane} after ${e.seconds}s`}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Globe, Static, type Stage } from "./connecting";
-import type { Run, RunMessage } from "./use-run";
+import type { Run, RunEvent, RunMessage } from "./use-run";
 
 /**
  * The large panel, which is two different things in sequence.
@@ -105,6 +105,7 @@ export function ChatPanel({
             {run.phase === "scanning" && !pending ? <Working text="reading what Kleeto has" /> : null}
           </ol>
         </div>
+        <HandOff events={run.events} />
         <Composer run={run} draft={draft} setDraft={setDraft} send={send} sending={sending} />
       </div>
     </div>
@@ -160,6 +161,7 @@ function Tuning({ run, stage }: { run: Run; stage: Stage }) {
         <Globe stage={stage} />
         {stage === "static" ? <Static label={first ? "finding a machine" : "changing machines"} /> : null}
       </div>
+      <HandOff events={run.events} />
       <CardStream messages={run.messages} ended={run.phase === "ended"} />
     </div>
   );
@@ -186,6 +188,7 @@ function Machine({ run }: { run: Run }) {
           sandbox="allow-scripts allow-same-origin"
         />
       </div>
+      <HandOff events={run.events} />
       <CardStream messages={run.messages} ended={run.phase === "ended"} />
     </div>
   );
@@ -236,6 +239,48 @@ function CardStream({ messages, ended }: { messages: RunMessage[]; ended: boolea
           </article>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * What the run produced, and how to keep it.
+ *
+ * The point of the whole thing, so it sits under whichever face is showing rather than behind a
+ * tab. The hash is next to the name because the same file's hash is in the receipt: a person who
+ * cares can check that what they downloaded is what was hashed on the machine.
+ */
+function HandOff({ events }: { events: RunEvent[] }) {
+  const made = events.filter((e) => e.kind === "file" && e.url);
+  if (made.length === 0) return null;
+  return (
+    <div className="shrink-0 border-t border-white/[0.07] bg-[oklch(0.155_0.008_85/0.9)] px-4 py-3">
+      <span className="kl-num block text-[9.5px] tracking-[0.16em] text-white/30 uppercase">
+        yours to keep
+      </span>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {made.map((f, i) => (
+          <li key={`${f.at}-${i}`}>
+            <a
+              href={f.url}
+              download={f.name}
+              className="kl-rise flex items-center gap-2.5 rounded-[10px] border border-[var(--kl-amber)]/25 bg-[var(--kl-amber)]/[0.07] px-3 py-2 transition-colors hover:border-[var(--kl-amber)]/50 hover:bg-[var(--kl-amber)]/[0.12]"
+            >
+              <svg viewBox="0 0 16 16" aria-hidden className="size-3.5 shrink-0 text-[var(--kl-amber)]"
+                   fill="none" stroke="currentColor" strokeWidth="1.6">
+                <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13h10" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="min-w-0">
+                <span className="block truncate text-[12.5px] text-white/85">{f.name}</span>
+                <span className="kl-num block text-[10px] text-white/30">
+                  {((f.bytes ?? 0) / 1024).toFixed(0)} kB
+                  {f.sha256 ? <span className="ml-1.5">{f.sha256.slice(0, 10)}…</span> : null}
+                </span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

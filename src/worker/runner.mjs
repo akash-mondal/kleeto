@@ -84,7 +84,10 @@ Once approved:
 7. Do the work, driving applications through their own interfaces. Screenshot after anything
    that changes the screen; never assume a click landed. A desktop takes about 45 seconds to
    restore from its image — screenshot until you see one.
-8. Finish with kleeto_receipt, then kleeto_return, then say what you produced, what fought you,
+8. Anything they are meant to keep: kleeto_deliver it before you hand the machine back. The
+   machine goes back and everything on it goes with it — a file saved to /root on a returned
+   desktop is a file nobody will ever open. Deliver the finished thing, not your working files.
+9. Finish with kleeto_receipt, then kleeto_return, then say what you produced, what fought you,
    and the settlement transaction.
 
 When something blocks you, escalate before you give up. You have more than one machine and you

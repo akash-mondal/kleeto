@@ -21,6 +21,7 @@ import { control, handleFor, ACTIONS } from "./control.mjs";
 import { JobQueue } from "./jobs.mjs";
 import { agentCatalogue, resolveAgent, DEFAULT_AGENT } from "../agents.mjs";
 import { discovery } from "../discovery.mjs";
+import { Deliverables, fetchFromMachine, safeName } from "./deliverables.mjs";
 import { randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
@@ -31,6 +32,13 @@ const ORIGIN = process.env.PUBLIC_ORIGIN ?? `http://localhost:${PORT}`;
 const MAX_SECONDS = Number(process.env.MAX_LEASE_SECONDS ?? 3600);
 
 const net = resolveNetwork(NETWORK);
+/**
+ * The hand-off folder, one per run.
+ *
+ * Swept every few minutes: a run that has finished and has had nobody looking at it for half an
+ * hour is a run whose files nobody is coming back for. Everything goes at six hours regardless.
+ */
+const files = new Deliverables({ dir: process.env.DELIVERABLES_DIR ?? "var/deliverables" });
 const store = new Store({ path: process.env.LEASE_STORE ?? "var/leases.json" });
 const facilitator = new Facilitator(net);
 
@@ -421,11 +429,13 @@ app.get("/v1/jobs/:id/stream", (c) => {
           try { controller.enqueue(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)); }
           catch { /* the watcher closed the tab mid-write */ }
         };
+        files.touch(id);
         send("thread", jobs.thread(id));
         const on = (name) => (payload) => { if (payload?.id === id) send(name, jobs.thread(id)); };
         const handlers = { message: on("thread"), event: on("thread"), updated: on("thread") };
         for (const [k, fn] of Object.entries(handlers)) jobs.on(k, fn);
         const keep = setInterval(() => {
+          files.touch(id);            // somebody is still on the page; hold their files
           try { controller.enqueue(enc.encode(": keepalive\n\n")); } catch {}
         }, 15000);
         c.req.raw.signal.addEventListener("abort", () => {
@@ -749,6 +759,69 @@ app.post("/v1/leases/:id/control", async (c) => {
   }
 });
 
+/**
+ * Copy something the agent made into this run's hand-off folder.
+ *
+ * The machine is rented and the folder is not: this is the only step that makes a file outlive
+ * the thing that produced it. It is deliberately explicit — an agent says what it considers a
+ * deliverable rather than us guessing from a directory listing — and the hash goes into the
+ * run's ledger next to the payments, so what was handed over is as checkable as what was paid.
+ */
+app.post("/v1/leases/:id/deliver", async (c) => {
+  const lease = store.get(c.req.param("id"));
+  if (!lease) return c.json({ error: "no such lease" }, 404);
+  if (lease.state !== "open") return c.json({ error: `lease is ${lease.state}` }, 409);
+  const jobId = c.req.header("x-kleeto-job");
+  if (!jobId || !jobs.thread(jobId)) {
+    return c.json({ error: "no run to deliver to; this agent has no watcher" }, 409);
+  }
+  const body = await c.req.json().catch(() => ({}));
+  const path = String(body.path ?? "");
+  if (!path) return c.json({ error: "deliver what? give the path on the machine" }, 400);
+
+  try {
+    const handle = await handleFor(lease, live);
+    if (!handle?.sh) return c.json({ error: "this lease has no filesystem to deliver from" }, 409);
+    const buf = await fetchFromMachine(handle, path);
+    const saved = files.put(jobId, safeName(body.as ?? path), buf);
+    const url = `${ORIGIN}/v1/runs/${jobId}/files/${encodeURIComponent(saved.name)}`;
+    jobs.record(jobId, {
+      kind: "file", name: saved.name, bytes: saved.bytes, sha256: saved.sha256, url,
+      text: `handed over ${saved.name} (${(saved.bytes / 1024).toFixed(0)}kB)`,
+    });
+    return c.json({ ...saved, url, note: "kept while this run's page is open, and a while after" });
+  } catch (e) {
+    return c.json({ error: String(e.message).slice(0, 300) }, e.status ?? 500);
+  }
+});
+
+/** What this run has produced, for the page that is watching it. */
+app.get("/v1/runs/:job/files", (c) => {
+  const jobId = c.req.param("job");
+  if (!jobs.thread(jobId)) return c.json({ error: "no such run" }, 404);
+  files.touch(jobId);
+  return c.json({ files: files.list(jobId).map((f) => ({ ...f, url: `${ORIGIN}/v1/runs/${jobId}/files/${encodeURIComponent(f.name)}` })) });
+});
+
+/**
+ * The download itself.
+ *
+ * Always an attachment and always an opaque type. These are files an agent wrote, served from
+ * Kleeto's own origin: rendering one inline would let a run that produced an HTML file run
+ * script as us, which is a high price for a preview nobody asked for.
+ */
+app.get("/v1/runs/:job/files/:name", (c) => {
+  const jobId = c.req.param("job");
+  const name = safeName(c.req.param("name"));
+  const buf = jobs.thread(jobId) ? files.read(jobId, name) : null;
+  if (!buf) return c.json({ error: "that file is gone, or was never here" }, 404);
+  c.header("Content-Type", "application/octet-stream");
+  c.header("Content-Disposition", `attachment; filename="${name}"`);
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Cache-Control", "no-store");
+  return c.body(buf);
+});
+
 /** What this lease can be asked to do. */
 app.get("/v1/leases/:id/actions", (c) => {
   const lease = store.get(c.req.param("id"));
@@ -771,6 +844,11 @@ async function main() {
     throw new Error("HEDERA_OPERATOR_ID is not set: the gateway has no account to be paid into");
   }
   feePayer = await resolveFeePayer(net);
+  /* A finished run nobody has looked at for half an hour is a run whose files nobody wants. */
+  setInterval(() => {
+    const gone = files.sweep((jobId) => ["done", "failed", "cancelled"].includes(jobs.view(jobId)?.state ?? "done"));
+    if (gone) console.log(`swept ${gone} hand-off folder${gone === 1 ? "" : "s"}`);
+  }, 5 * 60_000).unref();
   console.log(`kleeto gateway
   network    ${net.caip2}
   facilitator${" ".repeat(0)} ${net.facilitator}

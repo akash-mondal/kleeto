@@ -21,7 +21,7 @@ export type RunMessage = {
 
 export type RunEvent = {
   at: number;
-  kind: "topup" | "rent" | "return";
+  kind: "topup" | "rent" | "return" | "file";
   text: string;
   tinybar?: number | null;
   asset?: string | null;
@@ -32,6 +32,11 @@ export type RunEvent = {
   leaseId?: string;
   seconds?: number;
   chainHead?: string | null;
+  /** on a `file` event: what was handed over, and where to get it */
+  name?: string;
+  bytes?: number;
+  sha256?: string;
+  url?: string;
 };
 
 export type RunPhase = "queued" | "scanning" | "talking" | "working" | "ended";
