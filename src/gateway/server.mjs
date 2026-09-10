@@ -11,6 +11,7 @@ import { cors } from "hono/cors";
 
 import { resolveNetwork, resolveFeePayer, hashscanTx } from "../networks.mjs";
 import { catalogue, requireLane } from "../lanes.mjs";
+import { imageCatalogue } from "../images.mjs";
 import { Store, newId } from "./store.mjs";
 import { provision, terminate, publicView, leaksVendor } from "./vendors.mjs";
 import { buildChallenge, decodePaymentHeader, matchRequirements, Facilitator, X402_VERSION } from "./x402.mjs";
@@ -100,6 +101,13 @@ app.get("/healthz", (c) => c.json({
 }));
 
 /** The menu. Prices are quoted live against the ledger's own rate, in both assets. */
+/**
+ * What software a desktop can boot with. Separate from the lane list because the two are
+ * separate choices: the lane is how much machine and sets the price, the image is what is
+ * installed on it and costs nothing extra.
+ */
+app.get("/v1/images", (c) => c.json({ images: imageCatalogue() }));
+
 app.get("/v1/lanes", async (c) => {
   const cat = await catalogue(net);
   const lanes = Object.values(cat.lanes).map((l) => ({
@@ -351,7 +359,7 @@ app.post("/v1/leases", async (c) => {
   // paid: now it is safe to spend upstream
   let up;
   try {
-    up = await provision(laneId, { seconds, metadata: { kleeto: "lease" } });
+    up = await provision(laneId, { seconds, image: body.image, metadata: { kleeto: "lease" } });
   } catch (e) {
     // The agent paid and got nothing. Say so plainly and record it; a silent 500 here is the
     // one failure that would deserve a refund, so it must be visible in the ledger.
@@ -368,7 +376,7 @@ app.post("/v1/leases", async (c) => {
   const now = Date.now();
   const lease = store.put({
     id: newId("ls"),
-    lane: laneId, kind: up.kind, state: "open", network: net.caip2,
+    lane: laneId, kind: up.kind, image: up.image ?? "base", state: "open", network: net.caip2,
     sessionId,
     asset: requirements?.asset ?? null, assetSymbol: requirements?.extra?.symbol ?? null,
     creditTinybar: priced.creditTinybar, secondsPurchased: seconds, paidTinybar: tinybar,

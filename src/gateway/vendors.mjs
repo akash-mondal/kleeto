@@ -12,6 +12,7 @@
 import { SolariAdapter } from "../adapters/solari.mjs";
 import { BrowserUseAdapter } from "../adapters/browser-use.mjs";
 import { requireLane } from "../lanes.mjs";
+import { resolveImage } from "../images.mjs";
 
 let solari = null;
 let browserUse = null;
@@ -38,7 +39,7 @@ function browserUseAdapter() {
  * it holds the supplier's own endpoints, which carry the supplier's hostname and, in the
  * browser case, an unauthenticated control channel to a live browser.
  */
-export async function provision(laneId, { seconds, metadata } = {}) {
+export async function provision(laneId, { seconds, metadata, image } = {}) {
   const lane = requireLane(laneId);
   const timeoutMs = Math.ceil((seconds ?? 600) * 1000) + 60_000;   // upstream outlives the meter briefly
 
@@ -65,9 +66,14 @@ export async function provision(laneId, { seconds, metadata } = {}) {
       upstream: { cdp: s.cdpEndpoint, ws: s.wsEndpoint },
     };
   }
-  const lease = await a.provision({ id: laneId, ...lane }, { timeoutMs, metadata });
+  // A desktop can boot a prepared image instead of the stock template. The image decides what
+  // software is on the machine; the lane decides how much machine, and only the lane is priced.
+  const fromSnapshot = lane.family === "desktop" ? resolveImage(image) : null;
+  const lease = await a.provision({ id: laneId, ...lane },
+    { timeoutMs, metadata, ...(fromSnapshot ? { fromSnapshot } : {}) });
   return {
     handle: lease, kind: lane.family, vendor: "solari", vendorId: lease.id,
+    image: image ?? "base",
     upstream: { stream: lease.streamUrl },
   };
 }
@@ -104,6 +110,7 @@ export function publicView(l, { origin }) {
     id: l.id,
     lane: l.lane,
     kind: l.kind,
+    image: l.image ?? "base",
     state: l.state,
     network: l.network,
     asset: l.asset,

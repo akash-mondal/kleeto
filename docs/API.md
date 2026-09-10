@@ -49,6 +49,30 @@ Eight lanes with live per-second prices, quoted against the ledger's own HBAR ra
 | `browser-fast` | browser | $0.110 | real Chrome over CDP, flat rate |
 | `browser-max` | browser | $1.633 | stealth, residential egress, automatic CAPTCHA, 250 MB ceiling |
 
+### Images
+
+```
+GET /v1/images
+```
+
+What software a desktop boots with. Separate from the lane list because they are separate
+choices: the lane is how much machine and sets the price, the image is what is installed on it
+and costs nothing extra, since the disk is paid for either way.
+
+| Image | Owns | Apps |
+|---|---|---|
+| `base` | office documents, bitmap editing, vector illustration, the web | LibreOffice, GIMP, Inkscape, Chrome |
+| `studio` | 3D, photography, print, video | Blender, darktable, Scribus, Kdenlive |
+| `engineering` | electronics, CAD, geospatial | KiCad, FreeCAD, QGIS |
+| `office` | databases, mail, bookkeeping, remote access, network forensics | DBeaver, Thunderbird, GnuCash, Remmina, Wireshark |
+
+One tool per job across all four: nothing duplicates anything else. Pass `image` when opening a
+desktop lease; omit it for `base`.
+
+```json
+POST /v1/leases { "lane": "desktop-4", "image": "engineering", "sessionId": "ss_…" }
+```
+
 ### Sessions, the metered path
 
 ```
