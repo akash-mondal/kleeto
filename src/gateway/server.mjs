@@ -15,6 +15,7 @@ import { Store, newId } from "./store.mjs";
 import { provision, terminate, publicView, leaksVendor } from "./vendors.mjs";
 import { buildChallenge, decodePaymentHeader, matchRequirements, Facilitator, X402_VERSION } from "./x402.mjs";
 import { viewerPage, attachLiveSocket } from "./live.mjs";
+import { Meter, verifyChain, genesis } from "./meter.mjs";
 import { randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
@@ -27,6 +28,33 @@ const MAX_SECONDS = Number(process.env.MAX_LEASE_SECONDS ?? 3600);
 const net = resolveNetwork(NETWORK);
 const store = new Store({ path: process.env.LEASE_STORE ?? "var/leases.json" });
 const facilitator = new Facilitator(net);
+
+/**
+ * One meter for the whole gateway. It ticks every open lease once a second, debits the
+ * session that paid for it, and hash-chains each second to the one before, so the bill is
+ * something a buyer recomputes rather than something we assert.
+ */
+const meter = new Meter({
+  store,
+  lowWaterSeconds: Number(process.env.LOW_WATER_SECONDS ?? 60),
+  anchorEverySec: Number(process.env.ANCHOR_EVERY_SEC ?? 60),
+  onAnchor: (a) => hcs?.anchor(a).catch(() => {}),
+});
+let hcs = null;   // set at boot when a topic is configured
+
+/** Everything the meter says, fanned out to whoever is watching a lease. */
+const watchers = new Map();   // leaseId -> Set<(event, data) => void>
+function watch(leaseId, fn) {
+  if (!watchers.has(leaseId)) watchers.set(leaseId, new Set());
+  watchers.get(leaseId).add(fn);
+  return () => watchers.get(leaseId)?.delete(fn);
+}
+function fanout(event, data) {
+  for (const fn of watchers.get(data.leaseId) ?? []) { try { fn(event, data); } catch {} }
+}
+for (const e of ["open", "tick", "low", "exhausted", "anchor", "paid", "closed"]) {
+  meter.on(e, (d) => fanout(e, d));
+}
 
 /**
  * Resolved once at boot from the facilitator's own `/supported`. If it is not advertising
@@ -55,6 +83,168 @@ app.get("/v1/lanes", async (c) => {
   return c.json({ network: cat.network, usdPerHbar: cat.usdPerHbar, assets: ["USDC", "HBAR"], lanes });
 });
 
+/* ------------------------------------------------------------------ sessions ---- */
+/**
+ * A session is a funded balance an agent draws down by the second. It is free to open; the
+ * money arrives at the top-up, and the metering happens against the balance.
+ *
+ * This is what makes the product metered rather than prepaid. `exact` can only pay once for
+ * one thing, so the payment buys credit and the credit is spent a second at a time.
+ */
+app.post("/v1/sessions", (c) => {
+  const id = newId("ss");
+  meter.session(id);
+  return c.json({
+    sessionId: id, balanceTinybar: 0, network: net.caip2,
+    topUpUrl: `${ORIGIN}/v1/sessions/${id}/topup`,
+    assets: ["USDC", "HBAR"],
+  }, 201);
+});
+
+app.get("/v1/sessions/:id", async (c) => {
+  const s = meter.sessions.get(c.req.param("id"));
+  if (!s) return c.json({ error: "no such session" }, 404);
+  const cat = await catalogue(net);
+  const leases = store.all().filter((l) => l.sessionId === s.id);
+  const burn = leases.filter((l) => l.state === "open").reduce((n, l) => n + l.creditTinybar, 0);
+  return c.json({
+    sessionId: s.id,
+    balanceTinybar: s.balanceTinybar,
+    balanceUsd: +((s.balanceTinybar / 1e8) * cat.usdPerHbar).toFixed(6),
+    spentTinybar: s.spentTinybar,
+    spentUsd: +((s.spentTinybar / 1e8) * cat.usdPerHbar).toFixed(6),
+    burnTinybarPerSec: burn,
+    secondsRemaining: burn ? Math.floor(s.balanceTinybar / burn) : null,
+    topUps: s.topUps,
+    leases: leases.map((l) => ({ id: l.id, lane: l.lane, state: l.state })),
+  });
+});
+
+/**
+ * Add credit. This is the x402 gate: unpaid it answers 402 with both assets, paid it settles
+ * through Blocky402 and the balance goes up by exactly what was settled.
+ */
+app.post("/v1/sessions/:id/topup", async (c) => {
+  const s = meter.sessions.get(c.req.param("id"));
+  if (!s) return c.json({ error: "no such session" }, 404);
+  const body = await c.req.json().catch(() => ({}));
+  const tinybar = Math.max(1, Math.ceil(Number(body.tinybar ?? 100_000_000)));   // default 1 HBAR
+
+  const cat = await catalogue(net);
+  const challenge = buildChallenge({
+    net, payTo: PAY_TO, feePayer,
+    resource: `${ORIGIN}/v1/sessions/${s.id}/topup`,
+    description: `top up session ${s.id}`,
+    tinybar, usdPerHbar: cat.usdPerHbar,
+  });
+
+  const payment = decodePaymentHeader(c.req.header("X-PAYMENT"));
+  if (!payment) return c.json(challenge, 402);
+
+  const requirements = matchRequirements(challenge, payment);
+  if (!requirements) return c.json({ ...challenge, error: "payment does not match any offered asset" }, 402);
+
+  const v = await facilitator.verify(payment, requirements);
+  if (!v.ok || v.body?.isValid === false) {
+    return c.json({ ...challenge, error: "payment rejected", reason: v.body?.invalidReason ?? v.body }, 402);
+  }
+  const settled = await facilitator.settle(payment, requirements);
+  if (!settled.ok || settled.body?.success === false) {
+    return c.json({ ...challenge, error: "settlement failed", reason: settled.body?.errorReason ?? settled.body }, 402);
+  }
+  const txId = settled.body?.transaction ?? settled.body?.transactionId ?? null;
+  const balance = s.credit(tinybar, { transaction: txId, asset: requirements.extra?.symbol });
+
+  // tell every open lease on this session that money landed, so a watching UI can show it
+  for (const l of store.all().filter((x) => x.sessionId === s.id && x.state !== "closed")) {
+    fanout("paid", { leaseId: l.id, sessionId: s.id, tinybar, asset: requirements.extra?.symbol,
+                     transaction: txId, balanceTinybar: balance,
+                     explorer: txId ? hashscanTx(net, txId) : null });
+    if (l.state === "paused" && l.pausedReason === "balance exhausted") {
+      store.patch(l.id, { state: "open", pausedReason: null });
+    }
+  }
+  c.header("X-PAYMENT-RESPONSE", Buffer.from(JSON.stringify({ success: true, transaction: txId, network: net.caip2 })).toString("base64"));
+  return c.json({
+    sessionId: s.id, creditedTinybar: tinybar, balanceTinybar: balance,
+    asset: requirements.extra?.symbol,
+    settlement: txId ? { transaction: txId, explorer: hashscanTx(net, txId) } : null,
+  }, 200);
+});
+
+/**
+ * Credit a session without settling, for testing the meter before an account exists.
+ *
+ * Off unless KLEETO_DEV_CREDIT is set, and it announces itself in the response so a stray
+ * enablement in production is visible in the first reply rather than in the accounts later.
+ */
+app.post("/v1/sessions/:id/dev-credit", async (c) => {
+  if (!process.env.KLEETO_DEV_CREDIT) return c.json({ error: "not found" }, 404);
+  const s = meter.sessions.get(c.req.param("id"));
+  if (!s) return c.json({ error: "no such session" }, 404);
+  const { tinybar = 100_000_000 } = await c.req.json().catch(() => ({}));
+  const balance = s.credit(Math.ceil(tinybar), { transaction: "dev-credit", asset: "DEV" });
+  for (const l of store.all().filter((x) => x.sessionId === s.id && x.state === "paused")) {
+    store.patch(l.id, { state: "open", pausedReason: null });
+    fanout("paid", { leaseId: l.id, sessionId: s.id, tinybar, asset: "DEV", balanceTinybar: balance });
+  }
+  return c.json({ sessionId: s.id, balanceTinybar: balance, settled: false, warning: "dev credit, no payment settled" });
+});
+
+/* -------------------------------------------------------------------- meter ---- */
+/**
+ * The meter, live.
+ *
+ * Server-sent events rather than polling, because the thing being shown is a number changing
+ * every second and a UI that polls will always be a second behind the truth it is drawing.
+ * Every event carries the chain head, so a viewer is watching the same evidence the receipt
+ * is built from rather than a pretty approximation of it.
+ */
+app.get("/v1/leases/:id/meter", (c) => {
+  const lease = store.get(c.req.param("id"));
+  if (!lease) return c.json({ error: "no such lease" }, 404);
+
+  return c.newResponse(
+    new ReadableStream({
+      start(controller) {
+        const enc = new TextEncoder();
+        const send = (event, data) =>
+          controller.enqueue(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+
+        send("hello", {
+          leaseId: lease.id, lane: lease.lane, rateTinybar: lease.creditTinybar,
+          state: lease.state, ...(meter.state(lease.id) ?? {}),
+        });
+        const off = watch(lease.id, send);
+        const keep = setInterval(() => controller.enqueue(enc.encode(": keepalive\n\n")), 15000);
+        c.req.raw.signal.addEventListener("abort", () => {
+          off(); clearInterval(keep);
+          try { controller.close(); } catch {}
+        });
+      },
+    }),
+    { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "X-Accel-Buffering": "no" } },
+  );
+});
+
+/** The working behind the bill: every second, hash-chained, recomputable without us. */
+app.get("/v1/leases/:id/proof", (c) => {
+  const lease = store.get(c.req.param("id"));
+  if (!lease) return c.json({ error: "no such lease" }, 404);
+  const proof = meter.proof(lease.id) ?? lease.proof;
+  if (!proof) return c.json({ error: "no ticks recorded for this lease" }, 404);
+  const g = genesis(lease);
+  const check = verifyChain({ genesisHash: g, leaseId: lease.id, ticks: proof.ticks ?? [] });
+  return c.json({
+    leaseId: lease.id, lane: lease.lane, rateTinybar: lease.creditTinybar,
+    genesis: g, chainHead: proof.chainHead, seconds: proof.seconds,
+    totalTinybar: proof.totalTinybar, selfCheck: check,
+    hcsTopic: process.env.HCS_TOPIC_ID ?? null,
+    howToVerify: "sha256(prev|seq|leaseId|tinybar|at) for each tick, starting from genesis",
+    ticks: proof.ticks ?? [],
+  });
+});
+
 /**
  * Rent a machine.
  *
@@ -80,24 +270,54 @@ app.post("/v1/leases", async (c) => {
     net, payTo: PAY_TO, feePayer, resource, description, tinybar, usdPerHbar: cat.usdPerHbar,
   });
 
-  const payment = decodePaymentHeader(c.req.header("X-PAYMENT"));
-  if (!payment) return c.json(challenge, 402);
+  /**
+   * Two ways to pay for a machine, and the difference matters.
+   *
+   * With a funded session the meter is the payment: the balance was settled earlier and gets
+   * spent a second at a time, which is the metered path and the one the product is built on.
+   * Without one, a single `exact` payment buys a fixed block up front, which is simpler for a
+   * one-shot job but is prepayment rather than metering.
+   */
+  const sessionId = body.sessionId ? String(body.sessionId) : null;
+  let txId = null;
+  let requirements = null;
 
-  const requirements = matchRequirements(challenge, payment);
-  if (!requirements) {
-    return c.json({ ...challenge, error: "payment does not match any offered asset" }, 402);
-  }
+  if (sessionId) {
+    const sess = meter.sessions.get(sessionId);
+    if (!sess) return c.json({ error: "no such session" }, 404);
+    if (sess.balanceTinybar < priced.creditTinybar * 30) {
+      // Refuse to open a machine that cannot run for half a minute; the agent should top up
+      // first rather than watch it pause immediately.
+      return c.json({
+        ...buildChallenge({ net, payTo: PAY_TO, feePayer,
+          resource: `${ORIGIN}/v1/sessions/${sessionId}/topup`,
+          description: `top up session ${sessionId}`,
+          tinybar: Math.max(priced.creditTinybar * 300, 100_000_000), usdPerHbar: cat.usdPerHbar }),
+        error: "session balance too low to open this lane",
+        balanceTinybar: sess.balanceTinybar,
+        needTinybarPerSec: priced.creditTinybar,
+      }, 402);
+    }
+  } else {
+    const payment = decodePaymentHeader(c.req.header("X-PAYMENT"));
+    if (!payment) return c.json(challenge, 402);
 
-  const v = await facilitator.verify(payment, requirements);
-  if (!v.ok || v.body?.isValid === false) {
-    return c.json({ ...challenge, error: "payment rejected", reason: v.body?.invalidReason ?? v.body }, 402);
-  }
+    requirements = matchRequirements(challenge, payment);
+    if (!requirements) {
+      return c.json({ ...challenge, error: "payment does not match any offered asset" }, 402);
+    }
 
-  const s = await facilitator.settle(payment, requirements);
-  if (!s.ok || s.body?.success === false) {
-    return c.json({ ...challenge, error: "settlement failed", reason: s.body?.errorReason ?? s.body }, 402);
+    const v = await facilitator.verify(payment, requirements);
+    if (!v.ok || v.body?.isValid === false) {
+      return c.json({ ...challenge, error: "payment rejected", reason: v.body?.invalidReason ?? v.body }, 402);
+    }
+
+    const settled = await facilitator.settle(payment, requirements);
+    if (!settled.ok || settled.body?.success === false) {
+      return c.json({ ...challenge, error: "settlement failed", reason: settled.body?.errorReason ?? settled.body }, 402);
+    }
+    txId = settled.body?.transaction ?? settled.body?.txHash ?? settled.body?.transactionId ?? null;
   }
-  const txId = s.body?.transaction ?? s.body?.txHash ?? s.body?.transactionId ?? null;
 
   // paid: now it is safe to spend upstream
   let up;
@@ -108,7 +328,7 @@ app.post("/v1/leases", async (c) => {
     // one failure that would deserve a refund, so it must be visible in the ledger.
     const dead = store.put({
       id: newId("ls"), lane: laneId, kind: lane.family, state: "failed", network: net.caip2,
-      asset: requirements.asset, creditTinybar: priced.creditTinybar, secondsPurchased: seconds,
+      asset: requirements?.asset ?? null, creditTinybar: priced.creditTinybar, secondsPurchased: seconds,
       paidTinybar: tinybar, settlementTx: txId, error: String(e.message).slice(0, 200),
       createdAt: new Date().toISOString(),
     });
@@ -120,7 +340,8 @@ app.post("/v1/leases", async (c) => {
   const lease = store.put({
     id: newId("ls"),
     lane: laneId, kind: up.kind, state: "open", network: net.caip2,
-    asset: requirements.asset, assetSymbol: requirements.extra?.symbol,
+    sessionId,
+    asset: requirements?.asset ?? null, assetSymbol: requirements?.extra?.symbol ?? null,
     creditTinybar: priced.creditTinybar, secondsPurchased: seconds, paidTinybar: tinybar,
     settlementTx: txId,
     ...(lane.mbCeiling ? { mbCeiling: lane.mbCeiling, mbUsed: 0 } : {}),
@@ -132,6 +353,10 @@ app.post("/v1/leases", async (c) => {
     vendor: up.vendor, vendorId: up.vendorId, upstream: up.upstream,
   });
   live.set(lease.id, up.handle);
+  // A session-funded lease is metered from here; a prepaid one is credited its block first so
+  // the same tick loop, and the same hash chain, covers both.
+  if (!sessionId) meter.session(lease.id).credit(tinybar, { transaction: txId, asset: requirements?.extra?.symbol });
+  meter.start({ ...lease, sessionId: sessionId ?? lease.id });
 
   const out = publicView(lease, { origin: ORIGIN });
   const leak = leaksVendor(out);
@@ -162,8 +387,12 @@ app.post("/v1/leases/:id/stop", async (c) => {
   const fin = await terminate(l);
   const used = Math.max(1, Math.round((Date.now() - new Date(l.startedAt).getTime()) / 1000));
   const secondsUsed = Math.min(used, l.secondsPurchased);
+  const proof = meter.proof(l.id);
+  meter.stop(l.id);
   const closed = store.patch(l.id, {
     state: "closed", secondsUsed, closedAt: new Date().toISOString(),
+    proof: proof ? { seconds: proof.seconds, totalTinybar: proof.totalTinybar,
+                     chainHead: proof.chainHead, ticks: proof.ticks } : undefined,
     refundTinybar: Math.max(0, (l.secondsPurchased - secondsUsed) * l.creditTinybar),
     ...(fin.mb ? { mbUsed: fin.mb } : {}),
   });
