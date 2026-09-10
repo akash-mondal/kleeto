@@ -5,7 +5,7 @@ import "@/components/kleeto/kleeto.css";
 import "@/shaders/threeui.css";
 import { PredictiveArcCanvas } from "@/components/demo/shaders";
 import { AgentBalance } from "@/components/demo/agent-balance";
-import { Composer } from "@/components/demo/composer";
+import { Workspace } from "@/components/demo/workspace";
 import { MachinesFree } from "@/components/demo/machines-free";
 import { KleetoLockup } from "@/components/kleeto/kleeto-logo";
 
@@ -42,8 +42,8 @@ export default function DemoPage() {
           <AgentBalance />
         </header>
 
-        <main className="flex flex-1 items-center justify-center px-6 py-10 md:px-10">
-          <Composer />
+        <main className="flex flex-1 items-center justify-center px-4 py-6 md:px-8 md:py-8">
+          <Workspace />
         </main>
 
         <footer className="px-6 pb-6 text-center text-[12px] text-white/30 md:px-10">

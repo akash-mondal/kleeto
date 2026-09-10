@@ -61,6 +61,15 @@ export class JobQueue extends EventEmitter {
       state: "queued", at: Date.now(),
       claimedAt: null, startedAt: null, endedAt: null,
       leaseId: null, liveUrl: null, settlement: null, result: null,
+      /* the conversation, and where it has got to. A job is not a command any more: the
+         agent looks at what Kleeto has, says what it could do with it, and only starts
+         once the person has agreed to a plan. */
+      phase: "queued",
+      messages: [{ role: "user", kind: "note", text: String(prompt).slice(0, 4000), at: Date.now() }],
+      pending: null,
+      answers: {},
+      plan: null,
+      events: [],
     };
     this.jobs.set(job.id, job);
     this.#flush();
@@ -90,10 +99,101 @@ export class JobQueue extends EventEmitter {
     if (!j) return null;
     Object.assign(j, fields);
     if (fields.state === "running" && !j.startedAt) j.startedAt = Date.now();
-    if (["done", "failed", "cancelled"].includes(fields.state)) j.endedAt = Date.now();
+    if (fields.state === "running" && j.phase === "queued") j.phase = "scanning";
+    if (["done", "failed", "cancelled"].includes(fields.state)) { j.endedAt = Date.now(); j.phase = "ended"; j.pending = null; }
     this.#flush();
     this.emit("updated", this.view(id));
     return this.view(id);
+  }
+
+  /* ------------------------------------------------------------ the conversation ---- */
+
+  /**
+   * Something the agent wants the watcher to know, which does not need an answer.
+   *
+   * Narration is not decoration here: the agent spends real money a few seconds after it
+   * starts, and a person who cannot see what it decided cannot stop it in time.
+   */
+  say(id, { role = "agent", text, kind = "note" }) {
+    const j = this.jobs.get(id);
+    if (!j) return null;
+    j.messages.push({ role, kind, text: String(text).slice(0, 6000), at: Date.now() });
+    if (j.phase === "scanning" || j.phase === "queued") j.phase = "talking";
+    this.#flush();
+    this.emit("message", { id, message: j.messages.at(-1), phase: j.phase });
+    return j.messages.at(-1);
+  }
+
+  /**
+   * A question the run cannot continue past.
+   *
+   * `kind` is "question" while the agent is still working out what is wanted, and "plan" for
+   * the last one, which is the agent asking to begin. They are the same mechanism because
+   * they are the same promise: nothing happens until the person answers.
+   */
+  ask(id, { text, kind = "question", options = null }) {
+    const j = this.jobs.get(id);
+    if (!j) return null;
+    /* An agent whose tool call timed out waiting will ask the same thing again. That is the
+       same question, not a new one: hand back the pending one so the person is not shown two
+       copies of it and does not answer a question that nobody is listening to any more. */
+    if (j.pending && j.pending.text === String(text).slice(0, 6000)) return j.pending;
+    const qid = `q_${randomBytes(4).toString("base64url")}`;
+    j.pending = { qid, kind, text: String(text).slice(0, 6000), options, at: Date.now() };
+    j.messages.push({ role: "agent", kind, text: j.pending.text, options, qid, at: Date.now() });
+    if (kind === "plan") j.plan = j.pending.text;
+    j.phase = "talking";
+    this.#flush();
+    this.emit("message", { id, message: j.messages.at(-1), phase: j.phase, pending: j.pending });
+    return j.pending;
+  }
+
+  /** The person's reply. For a plan, `approve` is what turns talk into a rented machine. */
+  answer(id, { qid, text = "", approve = false }) {
+    const j = this.jobs.get(id);
+    if (!j) return null;
+    const p = j.pending;
+    if (!p || (qid && qid !== p.qid)) return null;
+    const reply = { text: String(text).slice(0, 4000), approve, at: Date.now() };
+    j.answers[p.qid] = reply;
+    j.messages.push({ role: "user", kind: p.kind, text: reply.text || (approve ? "Start work." : ""), at: reply.at });
+    j.pending = null;
+    if (p.kind === "plan" && approve) j.phase = "working";
+    this.#flush();
+    this.emit("message", { id, message: j.messages.at(-1), phase: j.phase, pending: null });
+    return reply;
+  }
+
+  /** What the agent's blocking tool call is waiting on. */
+  reply(id, qid) {
+    const j = this.jobs.get(id);
+    return j?.answers[qid] ?? null;
+  }
+
+  /**
+   * Money moving, kept next to the job that spent it.
+   *
+   * The gateway already knows every settlement; what it did not know was whose run it
+   * belonged to. Recorded here, a watcher gets a ledger of their own run rather than a
+   * global feed they have to pick their own payments out of.
+   */
+  record(id, event) {
+    const j = this.jobs.get(id);
+    if (!j) return null;
+    const e = { at: Date.now(), ...event };
+    j.events.push(e);
+    if (j.events.length > 200) j.events.shift();
+    this.#flush();
+    this.emit("event", { id, event: e });
+    return e;
+  }
+
+  /** Everything one watcher needs, in one shape: the talk, the money, the machine. */
+  thread(id) {
+    const j = this.jobs.get(id);
+    if (!j) return null;
+    return { ...this.view(id), phase: j.phase, plan: j.plan,
+             messages: j.messages, pending: j.pending, events: j.events };
   }
 
   /** A worker that dies holding a job must not block the line for ever. */
@@ -122,6 +222,7 @@ export class JobQueue extends EventEmitter {
       leaseId: j.leaseId, liveUrl: j.liveUrl, settlement: j.settlement,
       seconds: j.startedAt ? Math.round(((j.endedAt ?? Date.now()) - j.startedAt) / 1000) : 0,
       result: j.result, note: j.note ?? null,
+      phase: j.phase, pending: j.pending,
     };
   }
 

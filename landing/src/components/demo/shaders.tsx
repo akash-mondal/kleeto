@@ -9,3 +9,4 @@
  */
 export { PredictiveArcCanvas } from "@/shaders/predictive-arc/PredictiveArcCanvas";
 export { BrandOrbs } from "@/shaders/brand-orbs/BrandOrbs";
+export { TextPathStudies } from "@/shaders/text-path-studies/TextPathStudies";

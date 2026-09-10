@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AgentOrb, type AgentMark } from "./agent-orb";
+import { AGENT_META } from "./agents-meta";
 import { HbarMark, UsdcMark, X402Mark } from "./marks";
 import { Picker } from "./picker";
 import { useBoard } from "./use-board";
@@ -35,18 +36,6 @@ const EFFORT_NOTES: Record<string, string> = {
   on: "Thinking budget on",
 };
 
-/**
- * Which vendor's mark each model wears. The gateway sends this too, next to the model it
- * belongs to, but an older gateway would leave every model wearing OpenAI's rosette; the
- * picture on the page should not wait on a deploy to tell the truth.
- */
-const MARKS: Record<string, AgentMark> = {
-  "gpt-6-astra": "openai",
-  "glm-5.3-flash": "zai",
-  "kimi-k3": "moonshot",
-  "minimax-m3": "minimax",
-};
-
 const GATEWAY = process.env.NEXT_PUBLIC_KLEETO_GATEWAY ?? "https://api.kleeto.fun";
 
 type Agent = {
@@ -54,7 +43,12 @@ type Agent = {
   note: string; mark?: AgentMark; price: { in: number; out: number } | null; default: boolean;
 };
 
-export function Composer() {
+export function Composer({
+  onStarted,
+}: {
+  /** Hand the run to the workspace. The bar has done its whole job by then. */
+  onStarted?: (run: { id: string; agentLabel: string; mark: AgentMark }) => void;
+}) {
   const [value, setValue] = useState("");
   const [sending, setSending] = useState(false);
   const [placed, setPlaced] = useState<{ id: string; position: number } | null>(null);
@@ -96,7 +90,15 @@ export function Composer() {
         body: JSON.stringify({ prompt, agent: agentId, effort, asset }),
       });
       const j = await r.json();
-      if (r.ok) { setPlaced({ id: j.id, position: j.position }); setValue(""); }
+      if (r.ok) {
+        setPlaced({ id: j.id, position: j.position });
+        setValue("");
+        onStarted?.({
+          id: j.id,
+          agentLabel: agent?.label ?? agentId,
+          mark: agent?.mark ?? AGENT_META[agentId]?.mark ?? "openai",
+        });
+      }
     } finally { setSending(false); }
   }
 
@@ -105,7 +107,7 @@ export function Composer() {
       <div className="flex flex-col items-center">
         {/* the model's own mark, drawn rather than pasted in as a logo file */}
         <div className="pointer-events-none mb-7 h-[76px] w-[76px]">
-          <AgentOrb mark={agent?.mark ?? MARKS[agentId] ?? "openai"} size={64} />
+          <AgentOrb mark={agent?.mark ?? AGENT_META[agentId]?.mark ?? "openai"} size={64} />
         </div>
         <h1 className="kl-display text-center text-[30px] leading-[1.15] font-medium text-white md:text-[36px]">
           What should the agent do?

@@ -20,6 +20,7 @@ import { Meter, verifyChain, genesis } from "./meter.mjs";
 import { control, handleFor, ACTIONS } from "./control.mjs";
 import { JobQueue } from "./jobs.mjs";
 import { agentCatalogue, resolveAgent, DEFAULT_AGENT } from "../agents.mjs";
+import { discovery } from "../discovery.mjs";
 import { randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
@@ -126,6 +127,19 @@ app.get("/v1/images", (c) => c.json({ images: imageCatalogue() }));
  */
 app.get("/v1/agents", (c) => c.json({ agents: agentCatalogue(), default: DEFAULT_AGENT }));
 
+/**
+ * The whole menu in one answer, for an agent that has just woken up.
+ *
+ * `/v1/lanes` and `/v1/images` each tell half a truth: the first is a price list with no idea
+ * what the machines can be asked to do, the second a list of applications with no idea what
+ * they cost. An agent deciding between a browser and a desktop needs both at once, plus the
+ * order the money moves in, and it needs them before it has spent anything.
+ */
+app.get("/v1/catalogue", async (c) => {
+  const cat = await catalogue(net);
+  return c.json(discovery({ cat, network: cat.network }));
+});
+
 app.get("/v1/lanes", async (c) => {
   const cat = await catalogue(net);
   const lanes = Object.values(cat.lanes).map((l) => ({
@@ -218,6 +232,11 @@ app.post("/v1/sessions/:id/topup", async (c) => {
       store.patch(l.id, { state: "open", pausedReason: null });
     }
   }
+  noteJob(c, {
+    kind: "topup", tinybar, asset: requirements.extra?.symbol ?? null,
+    transaction: txId, explorer: txId ? hashscanTx(net, txId) : null,
+    text: `funded the session with ${(tinybar / 1e8).toFixed(4)} HBAR of credit`,
+  });
   const settleHeader = Buffer.from(JSON.stringify({ success: true, transaction: txId, network: net.caip2 })).toString("base64");
   c.header("PAYMENT-RESPONSE", settleHeader);
   c.header("X-PAYMENT-RESPONSE", settleHeader);
@@ -304,6 +323,117 @@ app.post("/v1/jobs/:id/report", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const v = jobs.update(c.req.param("id"), body);
   return v ? c.json(v) : c.json({ error: "no such job" }, 404);
+});
+
+/**
+ * Attach a money event to the run that caused it.
+ *
+ * The gateway has always known every settlement; it did not know whose run each one belonged
+ * to, so a watcher would have had to pick their own payments out of a global feed. The MCP
+ * server sends the job id it was spawned for, and everything spent under that header lands in
+ * that run's ledger.
+ */
+function noteJob(c, event) {
+  const id = c.req.header("x-kleeto-job");
+  if (id) jobs.record(id, event);
+}
+
+/* ------------------------------------------------------- the run as a conversation ---- */
+/**
+ * A run is a conversation before it is a machine.
+ *
+ * The agent reads the catalogue, says what it could do, asks what it needs to know, and
+ * proposes a plan. None of that costs anything. Only an approved plan turns into a rented
+ * computer, which is the one point in the sequence where money moves — so it is the one point
+ * that requires a person to say yes.
+ */
+app.get("/v1/jobs/:id/thread", (c) => {
+  const t = jobs.thread(c.req.param("id"));
+  return t ? c.json(t) : c.json({ error: "no such job" }, 404);
+});
+
+/** The agent narrating. Does not block; nothing is waiting on it. */
+app.post("/v1/jobs/:id/say", async (c) => {
+  const { text } = await c.req.json().catch(() => ({}));
+  if (!text) return c.json({ error: "say what?" }, 400);
+  const m = jobs.say(c.req.param("id"), { text });
+  return m ? c.json(m) : c.json({ error: "no such job" }, 404);
+});
+
+/** The agent asking. The answer is fetched separately, so a dropped connection loses nothing. */
+app.post("/v1/jobs/:id/ask", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.text) return c.json({ error: "ask what?" }, 400);
+  const p = jobs.ask(c.req.param("id"), {
+    text: body.text, kind: body.kind === "plan" ? "plan" : "question",
+    options: Array.isArray(body.options) ? body.options.slice(0, 6).map(String) : null,
+  });
+  return p ? c.json(p) : c.json({ error: "no such job" }, 404);
+});
+
+/**
+ * Has the person answered yet?
+ *
+ * Held open for up to `wait` seconds rather than answered immediately, because the caller is
+ * an agent inside a tool call: a poll loop in the model's context would burn tokens on the
+ * word "no" and put the waiting into the transcript, where it does not belong.
+ */
+app.get("/v1/jobs/:id/reply/:qid", async (c) => {
+  const id = c.req.param("id"), qid = c.req.param("qid");
+  if (!jobs.thread(id)) return c.json({ error: "no such job" }, 404);
+  const until = Date.now() + Math.min(120, Math.max(0, Number(c.req.query("wait") ?? 55))) * 1000;
+  for (;;) {
+    const r = jobs.reply(id, qid);
+    if (r) return c.json({ answered: true, ...r });
+    if (Date.now() >= until) return c.json({ answered: false, hint: "ask again with the same wait; they are still reading" });
+    await new Promise((s) => setTimeout(s, 500));
+  }
+});
+
+/** The person answering, from the page. An approved plan is what starts the work. */
+app.post("/v1/jobs/:id/answer", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const r = jobs.answer(c.req.param("id"), {
+    qid: body.qid, text: String(body.text ?? ""), approve: Boolean(body.approve),
+  });
+  if (!r) return c.json({ error: "nothing is waiting on an answer" }, 409);
+  return c.json({ ...jobs.thread(c.req.param("id")) });
+});
+
+/**
+ * One stream for a watcher: what was said, what was paid, and where the run has got to.
+ *
+ * The meter has its own stream per lease and keeps it — this is the run around the meter, and
+ * a page that had to poll for it would be a page that shows a payment several seconds after
+ * the money left.
+ */
+app.get("/v1/jobs/:id/stream", (c) => {
+  const id = c.req.param("id");
+  if (!jobs.thread(id)) return c.json({ error: "no such job" }, 404);
+  return c.newResponse(
+    new ReadableStream({
+      start(controller) {
+        const enc = new TextEncoder();
+        const send = (event, data) => {
+          try { controller.enqueue(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)); }
+          catch { /* the watcher closed the tab mid-write */ }
+        };
+        send("thread", jobs.thread(id));
+        const on = (name) => (payload) => { if (payload?.id === id) send(name, jobs.thread(id)); };
+        const handlers = { message: on("thread"), event: on("thread"), updated: on("thread") };
+        for (const [k, fn] of Object.entries(handlers)) jobs.on(k, fn);
+        const keep = setInterval(() => {
+          try { controller.enqueue(enc.encode(": keepalive\n\n")); } catch {}
+        }, 15000);
+        c.req.raw.signal.addEventListener("abort", () => {
+          for (const [k, fn] of Object.entries(handlers)) jobs.off(k, fn);
+          clearInterval(keep);
+          try { controller.close(); } catch {}
+        });
+      },
+    }),
+    { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "X-Accel-Buffering": "no" } },
+  );
 });
 
 /* --------------------------------------------------------------------- demo ---- */
@@ -519,6 +649,17 @@ app.post("/v1/leases", async (c) => {
     console.error("white-label leak in lease response:", leak);
     return c.json({ error: "internal" }, 500);
   }
+  /* The run learns which machine it got from the gateway that handed it over, not from
+     parsing the agent's prose for a lease id. A watcher whose live panel stayed empty because
+     the model happened not to mention the URL is watching nothing for no reason. */
+  const watching = c.req.header("x-kleeto-job");
+  if (watching) jobs.update(watching, { leaseId: lease.id, liveUrl: `${ORIGIN}/live/${lease.viewToken}` });
+  noteJob(c, {
+    kind: "rent", lane: lease.lane, leaseId: lease.id, image: lease.image,
+    tinybar: tinybar || null, transaction: txId, explorer: txId ? hashscanTx(net, txId) : null,
+    liveUrl: `${ORIGIN}/live/${lease.viewToken}`,
+    text: `took ${lease.lane}${lease.image && lease.image !== "base" ? ` on the ${lease.image} image` : ""} at ${priced.creditTinybar} tinybar a second`,
+  });
   const settleHeader = Buffer.from(JSON.stringify({ success: true, transaction: txId, network: net.caip2 })).toString("base64");
   c.header("PAYMENT-RESPONSE", settleHeader);
   c.header("X-PAYMENT-RESPONSE", settleHeader);
@@ -553,6 +694,12 @@ app.post("/v1/leases/:id/stop", async (c) => {
     ...(fin.mb ? { mbUsed: fin.mb } : {}),
   });
   live.delete(l.id);
+  noteJob(c, {
+    kind: "return", leaseId: l.id, lane: l.lane,
+    seconds: secondsUsed, tinybar: proof?.totalTinybar ?? secondsUsed * l.creditTinybar,
+    chainHead: proof?.chainHead ?? null,
+    text: `handed ${l.lane} back after ${secondsUsed} charged second${secondsUsed === 1 ? "" : "s"}`,
+  });
   return c.json(publicView(closed, { origin: ORIGIN }));
 });
 

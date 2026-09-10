@@ -26,26 +26,55 @@ const post = (path, body) =>
   }).then((r) => r.json()).catch(() => null);
 
 /**
- * The instructions every job gets. The prompt a person typed is the task; this is the part
- * that tells the agent it has a wallet and how to spend it.
+ * The instructions every job gets.
+ *
+ * What this used to say was "rent a desktop on the engineering image, use lane machine-1" —
+ * the prompt made the decision and the agent only typed. That is wrong twice: the person
+ * asking usually cannot tell whether their task needs a browser or a whole desktop, and an
+ * agent that is told cannot notice that what it was told is wrong.
+ *
+ * So it is told nothing about the estate. It goes and looks, says what it found it could do,
+ * asks what it needs to know, and proposes a plan. The machine is rented on the far side of
+ * a person saying yes — which is also the first moment any money moves, so the approval and
+ * the spend are the same gate.
  */
 const preamble = (job) => `You have a Hedera wallet and no account with anyone. Kleeto rents real
-computers by the second: you answer its 402 from your own wallet and it gives you a machine.
-The kleeto_* tools are the only way you can reach a computer.
+computers by the second: you answer its 402 from your own wallet and it hands you a machine.
+The kleeto_* tools are the only way you can reach a computer, and a person is watching this run.
 
-Do this:
-1. kleeto_topup with tinybar 400000000 and asset "${job.asset ?? "usdc"}". This is you paying, from your wallet.
-2. kleeto_rent a machine that suits the job.${job.image ? ` Use image "${job.image}".` : ""}${job.lane ? ` Use lane "${job.lane}".` : ""}
-   A desktop restores from a prepared image in about 45 seconds; screenshot until you see one.
-3. Report the live view URL as soon as you have it. Someone is watching.
-4. Do the work below, driving the applications through their own interfaces. Screenshot after
-   anything that changes the screen; never assume a click landed.
-5. When you are done: kleeto_receipt, then kleeto_return, then report what you produced, what
-   fought you, and the settlement transaction.
+Nobody has told you what Kleeto has. Go and find out, in this order:
 
-If something is genuinely impossible, say so plainly rather than pretending it worked.
+1. kleeto_discover. This is the whole estate: browsers, headless machines, full desktops, what
+   each one can be asked to do, what each costs a second, and which applications are already
+   installed on each desktop image. Read it before you decide anything.
+2. kleeto_say one short paragraph: what you could do for this task with what you just found,
+   and which machine you are leaning towards and why. Plain language, no lists of specs.
+3. kleeto_ask whatever you genuinely do not know. Ask about the task, not about infrastructure:
+   the person knows what they want made, not which lane it needs. Ask as many times as you need
+   to; it costs nothing and none of it is billed. Stop when you could not do the job better by
+   asking again.
+4. kleeto_plan: the machine you will take, the image if it is a desktop, the steps, roughly how
+   long, and what that will cost in money. It does not return until they approve it.
 
-The task:
+Rent nothing before kleeto_plan comes back approved. Not a browser, not a machine, not a
+top-up. The plan is the only thing standing between this person and their own money.
+
+Once approved:
+
+5. kleeto_topup, then kleeto_rent what you said you would rent. If you have changed your mind
+   about the machine, say so with kleeto_say before you take a different one.
+6. kleeto_say the live view URL the moment you have it. Someone is watching an empty panel
+   until you do.
+7. Do the work, driving applications through their own interfaces. Screenshot after anything
+   that changes the screen; never assume a click landed. A desktop takes about 45 seconds to
+   restore from its image — screenshot until you see one.
+8. Finish with kleeto_receipt, then kleeto_return, then say what you produced, what fought you,
+   and the settlement transaction.
+
+If something turns out to be impossible, say so plainly rather than pretending it worked. If
+you find the machine you took was the wrong choice, say that too — it is cheaper to be told.
+
+What they asked for:
 
 ${job.prompt}
 `;
@@ -89,14 +118,26 @@ async function run(job) {
                  ...(effort === "off" ? [] : ["--thinking", effort === "on" ? "high" : effort]),
                  "-t", "2400", "-c", RUNS, preamble(job)]]
     : ["codex", ["exec", "--skip-git-repo-check", "--json",
-                 "-c", `model_reasoning_effort=${effort}`, preamble(job)]];
+                 "-c", `model_reasoning_effort=${effort}`,
+                 /* Codex starts its MCP servers with the env block from its own config and
+                    nothing else, so the run's identity has to be pushed in as an override
+                    rather than inherited. Without it the agent has no one to ask. */
+                 "-c", `mcp_servers.kleeto.env.KLEETO_JOB_ID="${job.id}"`,
+                 preamble(job)]];
   log(`${job.id} → ${spec.label} at ${effort}`);
 
   await new Promise((resolve) => {
     const budget = setTimeout(() => {
       try { child.kill("SIGTERM"); } catch {}
     }, Number(process.env.JOB_BUDGET_MS ?? 45 * 60_000));
-    const child = spawn(cmd, args, { cwd: RUNS, stdio: ["ignore", "pipe", "pipe"] });
+    /* KLEETO_JOB_ID reaches the MCP server through codex/cline, which spawn it as a child:
+       it is how the agent's questions find the right page and how its payments find the
+       right ledger. */
+    const child = spawn(cmd, args, {
+      cwd: RUNS,
+      env: { ...process.env, KLEETO_JOB_ID: job.id },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
 
     // A runner that is not installed must fail the job now. Without this the spawn error is
     // never handled, the job sits in "running" for its full stale window, and it holds a slot

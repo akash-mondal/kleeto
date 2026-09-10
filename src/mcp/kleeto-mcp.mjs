@@ -8,6 +8,7 @@
  * The wallet lives here rather than in the model's context: the agent decides *to* pay, and
  * this decides *how*, which keeps a private key out of a transcript.
  */
+import { readFileSync } from "node:fs";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import { createClientHederaSigner, ExactHederaScheme } from "@x402/hedera";
 import { x402Client } from "@x402/core/client";
@@ -15,6 +16,32 @@ import { wrapFetchWithPayment } from "@x402/fetch";
 
 const GATEWAY = process.env.KLEETO_GATEWAY ?? "https://api.kleeto.fun";
 const NETWORK = process.env.KLEETO_NETWORK ?? "hedera:testnet";
+/**
+ * Which run this agent is working on, if a person is watching one.
+ *
+ * The worker sets KLEETO_JOB_ID when it spawns the model — but both Codex and Cline launch
+ * their MCP servers with an explicit env block from their own config, so the variable does
+ * not survive the hop unless it was named there. Codex can be told per run with a `-c`
+ * override; Cline cannot, so as a fallback this walks up its own process tree and reads the
+ * environment of whichever ancestor the worker did set it on. Same user, same box, so /proc
+ * is readable; off Linux there is no /proc and the answer is simply "nobody is watching",
+ * which is the right answer for an agent running on someone's laptop.
+ */
+function resolveJob() {
+  if (process.env.KLEETO_JOB_ID) return process.env.KLEETO_JOB_ID;
+  let pid = process.ppid;
+  for (let hop = 0; hop < 4 && pid > 1; hop++) {
+    try {
+      const env = readFileSync(`/proc/${pid}/environ`, "utf8");
+      const hit = env.split("\0").find((l) => l.startsWith("KLEETO_JOB_ID="));
+      if (hit) return hit.slice("KLEETO_JOB_ID=".length);
+      const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+      pid = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]);
+    } catch { return null; }
+  }
+  return null;
+}
+const JOB = resolveJob();
 
 const signer = createClientHederaSigner(
   process.env.AGENT_ACCOUNT_ID,
@@ -25,7 +52,7 @@ const pay = wrapFetchWithPayment(fetch, new x402Client().register(NETWORK, new E
 const call = async (path, { method = "GET", body, paid = false } = {}) => {
   const f = paid ? pay : fetch;
   const r = await f(GATEWAY + path, {
-    method, headers: { "Content-Type": "application/json" },
+    method, headers: { "Content-Type": "application/json", ...(JOB ? { "x-kleeto-job": JOB } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const text = await r.text();
@@ -42,6 +69,15 @@ async function session() {
 }
 
 const TOOLS = {
+  kleeto_discover: {
+    description:
+      "START HERE. Everything Kleeto has and what each thing costs: the three kinds of computer " +
+      "(browser, headless machine, full desktop), every lane with its specs and price, every " +
+      "desktop image with the applications on it, which assets are accepted, and the order money " +
+      "moves in. Read this before you decide anything — you are not told which machine to take.",
+    schema: { type: "object", properties: {} },
+    run: async () => call("/v1/catalogue"),
+  },
   kleeto_lanes: {
     description: "List the machines Kleeto rents and what each costs per second. Call this first.",
     schema: { type: "object", properties: {} },
@@ -127,7 +163,88 @@ const TOOLS = {
     schema: { type: "object", required: ["leaseId"], properties: { leaseId: { type: "string" } } },
     run: async ({ leaseId }) => call(`/v1/leases/${leaseId}/stop`, { method: "POST" }),
   },
+
+  /* ------------------------------------------------------------- talking to a person ---- */
+
+  kleeto_say: {
+    description:
+      "Tell the person watching something, without waiting for a reply. Use it when you have " +
+      "learned something that changes what you are about to spend, or to report the live view " +
+      "URL the moment you have one.",
+    schema: { type: "object", required: ["text"], properties: { text: { type: "string" } } },
+    run: async ({ text }) => {
+      if (!JOB) return { delivered: false, why: "nobody is watching this run" };
+      await call(`/v1/jobs/${JOB}/say`, { method: "POST", body: { text } });
+      return { delivered: true };
+    },
+  },
+
+  kleeto_ask: {
+    description:
+      "Ask the person a question and wait for their answer. Use this before renting anything, " +
+      "as many times as you need, until you actually understand the task. Returns their reply. " +
+      "If it returns answered:false they are still reading — call it again with the same text.",
+    schema: {
+      type: "object",
+      required: ["text"],
+      properties: {
+        text: { type: "string", description: "One question, in plain language." },
+        options: { type: "array", items: { type: "string" },
+                   description: "Optional: two to six concrete choices, if the question has them." },
+      },
+    },
+    run: async ({ text, options }) => converse({ text, options, kind: "question" }),
+  },
+
+  kleeto_plan: {
+    description:
+      "Propose what you are going to do and wait for the person to approve it. Say which machine " +
+      "you will take, which image if any, roughly how long, and what it will cost. NOTHING may be " +
+      "rented before this returns approved:true. If they reply with changes instead, fold them in " +
+      "and propose again.",
+    schema: {
+      type: "object",
+      required: ["text"],
+      properties: {
+        text: { type: "string", description: "The plan: the machine, the steps, the time, the cost." },
+      },
+    },
+    run: async ({ text }) => converse({ text, kind: "plan" }),
+  },
 };
+
+/**
+ * Ask, then wait.
+ *
+ * The waiting is held on the gateway rather than looped here, so a person taking two minutes
+ * to think does not become two minutes of "not yet" in the model's transcript. One tool call
+ * in, one answer out, however long the person took.
+ */
+async function converse({ text, options, kind }) {
+  if (!JOB) {
+    return { asked: false,
+             why: "nobody is watching this run, so there is no one to answer. Use your own judgement and continue.",
+             ...(kind === "plan" ? { approved: true } : {}) };
+  }
+  const { qid } = await call(`/v1/jobs/${JOB}/ask`, { method: "POST", body: { text, options, kind } });
+  /* Cline gives a tool call 300 seconds and Codex less, so this waits inside that budget and
+     then hands the turn back rather than being killed mid-question. Asking again is cheap and
+     the gateway remembers the question, so nothing is lost and nobody is asked twice. */
+  const deadline = Date.now() + 200_000;
+  for (;;) {
+    const r = await call(`/v1/jobs/${JOB}/reply/${qid}?wait=25`);
+    if (r.answered) {
+      return kind === "plan"
+        ? { approved: Boolean(r.approve), changes: r.text || null,
+            ...(r.approve ? {} : { next: "they want something different — revise and call kleeto_plan again" }) }
+        : { answered: true, reply: r.text };
+    }
+    if (Date.now() > deadline) {
+      return { answered: false, stillWaiting: qid,
+               hint: "they have not answered yet. Call this tool again with the same text to keep waiting — they will see the question you already asked, not a second copy." };
+    }
+  }
+}
 
 /* ------------------------------------------------------------------ MCP stdio ---- */
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
