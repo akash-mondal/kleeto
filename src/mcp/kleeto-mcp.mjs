@@ -154,7 +154,10 @@ process.stdin.on("data", async (d) => {
       try {
         const out = await tool.run(msg.params.arguments ?? {});
         // A screenshot comes back as an image so the model can actually look at the screen.
-        if (out?.image) {
+        // Keyed on `mime` rather than `image`, because a lease also carries an `image` field
+        // naming its software image, and treating that as pixels sends the model a content
+        // block whose data is the word "engineering".
+        if (out?.image && out?.mime) {
           reply({ content: [{ type: "image", data: out.image, mimeType: out.mime ?? "image/png" }] });
         } else {
           reply({ content: [{ type: "text", text: JSON.stringify(out, null, 1) }] });
