@@ -22,7 +22,8 @@ export function MachinesFree() {
         {free === null ? "—" : `${free} of ${board!.concurrency}`}
       </span>
       <span className="text-white/45">
-        {free === 1 ? "machine free" : "machines free"}
+        {/* "1 of 2 machine free" — the noun belongs to the two, not to the one that is free */}
+        {board && board.concurrency === 1 ? "machine free" : "machines free"}
         {waiting > 0 ? <span className="text-white/30"> · {waiting} waiting</span> : null}
       </span>
     </span>
