@@ -276,7 +276,10 @@ app.post("/v1/sessions/:id/dev-credit", async (c) => {
 app.post("/v1/jobs", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const prompt = String(body.prompt ?? "").trim();
-  if (prompt.length < 10) return c.json({ error: "say what the agent should do, in a sentence or more" }, 400);
+  /* Anything at all will do. "hi" is a perfectly good opening: the agent answers it by saying
+     what it has and what it could do, which is a better introduction to the product than a
+     form telling someone their greeting is too short. */
+  if (!prompt) return c.json({ error: "say something to the agent" }, 400);
   let agent;
   try {
     agent = resolveAgent(body.agent, body.effort);

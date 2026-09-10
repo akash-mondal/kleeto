@@ -81,14 +81,15 @@ export function Composer({
   }
 
   /**
-   * A sentence is the floor, and the bar says so.
+   * Anything you type is enough to start.
    *
-   * The gateway refuses anything under ten characters, because an agent given "hi" has nothing
-   * to discover a machine for. The button used to look live at two characters and then quietly
-   * do nothing, which reads as a broken page rather than as a rule.
+   * There used to be a ten-character floor here, on the theory that an agent given "hi" has
+   * nothing to work with. It has plenty: it can say what it found, what it could make, and what
+   * that would cost. Turning a greeting away with a rule about sentence length is a worse first
+   * impression than any answer the agent could give, so the only thing refused now is nothing
+   * at all.
    */
-  const ready = value.trim().length >= 10;
-  const tooShort = value.trim().length > 0 && !ready;
+  const ready = value.trim().length > 0;
 
   /** Submitting is free; the agent pays when it rents. What this buys is a place in the line. */
   async function send() {
@@ -223,11 +224,7 @@ export function Composer({
         </div>
       </div>
 
-      {tooShort || error ? (
-        <p className="mt-3 text-[12px] leading-[1.5] text-white/40">
-          {error ?? "A sentence or two. The agent has to work out which machine this needs, and two words are not enough to go on."}
-        </p>
-      ) : null}
+      {error ? <p className="mt-3 text-[12px] leading-[1.5] text-white/40">{error}</p> : null}
 
       {placed ? (
         <p className="kl-num mt-3 text-[12px] text-[var(--kl-amber)]">
