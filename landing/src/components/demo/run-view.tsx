@@ -57,9 +57,18 @@ export function RunView({
   const meta = run?.agent ? AGENT_META[run.agent] : null;
   /* A lease that has been handed back is no longer metered, so its stream has nothing left to
      say — but the run was charged for those seconds and the dial should keep saying so rather
-     than resetting to zero as if it had never run. */
-  const returned = run?.events.find((e) => e.kind === "return");
-  const settled = returned ? { seconds: returned.seconds ?? 0, tinybar: returned.tinybar ?? 0 } : null;
+     than resetting to zero as if it had never run.
+     Every machine, not the first one handed back: a run that borrows a browser for eighty
+     seconds and keeps a desktop for seven minutes was reporting the eighty seconds as its
+     total, which is the wrong number in the one place that exists to give the right one. */
+  const handedBack = run?.events.filter((e) => e.kind === "return") ?? [];
+  const settled = handedBack.length
+    ? {
+        seconds: handedBack.reduce((n, e) => n + (e.seconds ?? 0), 0),
+        tinybar: handedBack.reduce((n, e) => n + (e.tinybar ?? 0), 0),
+        machines: handedBack.length,
+      }
+    : null;
 
   return (
     <div className="kl-enter grid w-full max-w-[1180px] gap-3 lg:h-[min(760px,calc(100vh-150px))] lg:grid-cols-[minmax(0,1.7fr)_minmax(310px,1fr)]">
@@ -102,7 +111,9 @@ export function RunView({
           label="meter"
           aside={
             <span className="kl-num text-[10px] tracking-[0.1em] text-white/25">
-              {tick?.lane ?? returned?.lane ?? (run?.leaseId ? "live" : "idle")}
+              {tick?.lane
+                ?? (handedBack.length > 1 ? `${handedBack.length} machines` : handedBack[0]?.lane)
+                ?? (run?.leaseId ? "live" : "idle")}
             </span>
           }
         >

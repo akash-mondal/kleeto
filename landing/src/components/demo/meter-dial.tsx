@@ -34,7 +34,7 @@ export function MeterDial({
 }: {
   tick: Tick | null;
   /** The final total for a lease that has already been returned and stopped ticking. */
-  settled: { seconds: number; tinybar: number } | null;
+  settled: { seconds: number; tinybar: number; machines: number } | null;
   usdPerHbar: number | null;
   /** Whichever of the two the person chose on the bar. The bill is quoted in that. */
   asset: "usdc" | "hbar";
@@ -89,7 +89,9 @@ export function MeterDial({
             {mmss(seconds)}
           </span>
           <span className="kl-num mt-1.5 text-[9.5px] tracking-[0.16em] text-white/30 uppercase">
-            {done ? "charged in total" : minutes > 0 ? `${minutes} min charged` : "charged"}
+            {done
+              ? done.machines > 1 ? `across ${done.machines} machines` : "charged in total"
+              : minutes > 0 ? `${minutes} min charged` : "charged"}
           </span>
         </div>
       </div>
@@ -125,7 +127,10 @@ export function MeterDial({
             Out of credit. The machine is paused, not lost — the agent can top up and carry on.
           </span>
         ) : done ? (
-          <>The machine is back and the meter has stopped. Every one of these {done.seconds} seconds is a line in the receipt.</>
+          <>
+            {done.machines > 1 ? "Every machine is back" : "The machine is back"} and the meter has
+            stopped. Every one of these {done.seconds} seconds is a line in the receipt.
+          </>
         ) : tick?.chainHead ? (
           <>
             One notch is one charged second and one line in the receipt.{" "}
