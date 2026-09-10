@@ -38,3 +38,4 @@ landing/docs/design-references/
 # a skill copied in for one research task, not part of the project
 .agents/
 .claude/
+var/

@@ -60,6 +60,8 @@ export class SolariAdapter {
   constructor({ apiKey, baseUrl = BASE } = {}) {
     if (!apiKey) throw new Error("SolariAdapter requires an apiKey");
     const opts = { apiKey, baseUrl };
+    this.apiKey = apiKey;          // the browser pool is REST-only, no SDK client for it
+    this.baseUrl = baseUrl;
     this.sandboxes = new SandboxClient(opts);
     this.desktops = new DesktopClient(opts);
     this.templates = new TemplateClient(opts);
@@ -130,6 +132,32 @@ export class SolariAdapter {
     const out = [];
     for await (const s of this.sandboxes.listAll({ state: "running" })) out.push(s);
     return out;
+  }
+
+  /* ---------------------------------------------------------------- browsers ---- */
+  /**
+   * A real Chrome on the fast pool, driven over CDP. The SDK has no browser client, so this
+   * is the REST route the pool actually exposes. The stealth pool is not offered here: it has
+   * never had capacity on this key, and `browser-max` goes to the other supplier instead.
+   */
+  async browser({ pool = "fast", timeoutMs = 600_000 } = {}) {
+    const r = await fetch(`${this.baseUrl}/sessions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ ...(pool === "fast" ? {} : { stealth: true }), timeoutMs }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.sessionId) {
+      throw new Error(`browser session ${r.status}: ${JSON.stringify(j).slice(0, 160)}`);
+    }
+    return j;
+  }
+
+  async killBrowser(sessionId) {
+    await fetch(`${this.baseUrl}/sessions/${sessionId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${this.apiKey}` },
+    }).catch(() => {});
   }
 
   /* ----------------------------------------------------------------- volumes ---- */
