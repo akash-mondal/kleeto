@@ -8,6 +8,7 @@
  */
 import { spawn } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
+import { AGENTS } from "../agents.mjs";
 
 const GATEWAY = process.env.KLEETO_GATEWAY ?? "http://127.0.0.1:8787";
 const TOKEN = process.env.WORKER_TOKEN ?? "";
@@ -33,7 +34,7 @@ computers by the second: you answer its 402 from your own wallet and it gives yo
 The kleeto_* tools are the only way you can reach a computer.
 
 Do this:
-1. kleeto_topup with tinybar 400000000 and asset "usdc". This is you paying, from your wallet.
+1. kleeto_topup with tinybar 400000000 and asset "${job.asset ?? "usdc"}". This is you paying, from your wallet.
 2. kleeto_rent a machine that suits the job.${job.image ? ` Use image "${job.image}".` : ""}${job.lane ? ` Use lane "${job.lane}".` : ""}
    A desktop restores from a prepared image in about 45 seconds; screenshot until you see one.
 3. Report the live view URL as soon as you have it. Someone is watching.
@@ -51,13 +52,19 @@ ${job.prompt}
 
 /** Pull the live URL, lease and settlement out of the stream as they appear. */
 function glean(line) {
+  // Codex emits {type:"item.completed", item:{type:"agent_message", text}}; Cline emits
+  // {type:"agent_event", event:{type:"content_end"|"done", text}}. Scan whatever text either
+  // one produced rather than teaching this function two shapes.
   let e; try { e = JSON.parse(line); } catch { return null; }
-  const it = e.item;
-  if (e.type !== "item.completed" || it?.type !== "agent_message") return null;
+  const text =
+    (e.type === "item.completed" && e.item?.type === "agent_message" && e.item.text) ||
+    (e.event && typeof e.event.text === "string" && e.event.text) ||
+    (typeof e.text === "string" && e.text) || "";
+  if (!text || text.length < 8) return null;
   const out = {};
-  const live = /https?:\/\/[^\s")]*\/live\/[A-Za-z0-9_-]+/.exec(it.text);
-  const tx = /0\.0\.\d+@\d+\.\d+/.exec(it.text);
-  const lease = /ls_[A-Za-z0-9_-]{8,}/.exec(it.text);
+  const live = /https?:\/\/[^\s")]*\/live\/[A-Za-z0-9_-]+/.exec(text);
+  const tx = /0\.0\.\d+@\d+\.\d+/.exec(text);
+  const lease = /ls_[A-Za-z0-9_-]{8,}/.exec(text);
   if (live) out.liveUrl = live[0];
   if (tx) out.settlement = tx[0];
   if (lease) out.leaseId = lease[0];
@@ -69,12 +76,39 @@ async function run(job) {
   await post(`/v1/jobs/${job.id}/report`, { state: "running" });
   const file = `${RUNS}/${job.id}.jsonl`;
 
+  /**
+   * Two runners, because the models live in two places. Codex hosts Astra; the ClinePass
+   * models are reached through the Cline CLI. Both stream JSON events, so everything
+   * downstream of the spawn is the same.
+   */
+  const spec = AGENTS[job.agent ?? "gpt-6-astra"] ?? AGENTS["gpt-6-astra"];
+  const effort = job.effort ?? spec.defaultEffort;
+  const [cmd, args] = spec.runner === "cline"
+    ? ["cline", ["-P", "cline-pass", "-m", spec.model, "--json",
+                 // MiniMax has a toggle rather than levels, so "off" means no thinking flag
+                 ...(effort === "off" ? [] : ["--thinking", effort === "on" ? "high" : effort]),
+                 "-t", "2400", "-c", RUNS, preamble(job)]]
+    : ["codex", ["exec", "--skip-git-repo-check", "--json",
+                 "-c", `model_reasoning_effort=${effort}`, preamble(job)]];
+  log(`${job.id} → ${spec.label} at ${effort}`);
+
   await new Promise((resolve) => {
-    const child = spawn("codex", [
-      "exec", "--skip-git-repo-check", "--json",
-      "-c", "model_reasoning_effort=high",
-      preamble(job),
-    ], { cwd: RUNS, stdio: ["ignore", "pipe", "pipe"] });
+    const budget = setTimeout(() => {
+      try { child.kill("SIGTERM"); } catch {}
+    }, Number(process.env.JOB_BUDGET_MS ?? 45 * 60_000));
+    const child = spawn(cmd, args, { cwd: RUNS, stdio: ["ignore", "pipe", "pipe"] });
+
+    // A runner that is not installed must fail the job now. Without this the spawn error is
+    // never handled, the job sits in "running" for its full stale window, and it holds a slot
+    // someone else is queued for.
+    child.on("error", async (err) => {
+      await post(`/v1/jobs/${job.id}/report`, {
+        state: "failed",
+        result: `the ${spec.label} runner could not start: ${String(err.message).slice(0, 160)}`,
+      });
+      log(`${job.id} could not start ${cmd}: ${err.message}`);
+      resolve();
+    });
 
     let buf = "";
     const sent = {};
@@ -93,9 +127,16 @@ async function run(job) {
     });
     child.stderr.on("data", () => {});
     child.on("close", async (code) => {
-      const last = buf.split("\n").filter((l) => l.includes('"agent_message"')).slice(-1)[0];
+      clearTimeout(budget);
       let summary = null;
-      try { summary = JSON.parse(last).item.text.slice(0, 1500); } catch {}
+      for (const l of buf.split("\n").reverse()) {
+        try {
+          const e = JSON.parse(l);
+          const t = (e.item?.type === "agent_message" && e.item.text) ||
+                    (e.event?.type === "done" && e.event.text) || null;
+          if (t) { summary = String(t).slice(0, 1500); break; }
+        } catch { /* not every line is an event */ }
+      }
       await post(`/v1/jobs/${job.id}/report`, {
         state: code === 0 ? "done" : "failed",
         result: summary ?? `codex exited ${code}`,

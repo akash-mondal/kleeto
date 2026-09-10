@@ -51,11 +51,12 @@ export class JobQueue extends EventEmitter {
   running() { return [...this.jobs.values()].filter((j) => j.state === "claimed" || j.state === "running"); }
   queued() { return [...this.jobs.values()].filter((j) => j.state === "queued").sort((a, b) => a.at - b.at); }
 
-  submit({ prompt, image, lane, by }) {
+  submit({ prompt, image, lane, agent, effort, asset, by }) {
     const job = {
       id: `job_${randomBytes(6).toString("base64url")}`,
       prompt: String(prompt).slice(0, 4000),
       image: image ?? null, lane: lane ?? null,
+      agent: agent ?? null, effort: effort ?? null, asset: asset ?? "usdc",
       by: by ?? null,
       state: "queued", at: Date.now(),
       claimedAt: null, startedAt: null, endedAt: null,
@@ -115,6 +116,7 @@ export class JobQueue extends EventEmitter {
     const ahead = j.state === "queued" ? this.queued().findIndex((q) => q.id === j.id) : 0;
     return {
       id: j.id, state: j.state, image: j.image, lane: j.lane,
+      agent: j.agent, effort: j.effort, asset: j.asset,
       queuedAt: new Date(j.at).toISOString(),
       position: j.state === "queued" ? ahead + 1 : 0,
       leaseId: j.leaseId, liveUrl: j.liveUrl, settlement: j.settlement,

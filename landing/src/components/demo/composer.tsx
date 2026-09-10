@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import { BrandOrbs } from "./shaders";
 
 /**
@@ -23,10 +24,43 @@ const PRESETS = [
 
 const GATEWAY = process.env.NEXT_PUBLIC_KLEETO_GATEWAY ?? "https://api.kleeto.fun";
 
+type Agent = {
+  id: string; label: string; efforts: string[]; defaultEffort: string;
+  note: string; default: boolean;
+};
+
 export function Composer() {
   const [value, setValue] = useState("");
   const [sending, setSending] = useState(false);
   const [placed, setPlaced] = useState<{ id: string; position: number } | null>(null);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [agentId, setAgentId] = useState("gpt-6-astra");
+  const [effort, setEffort] = useState("medium");
+  const [asset, setAsset] = useState<"usdc" | "hbar">("usdc");
+  /** Once a task is in the queue its settings are what it runs with; changing them here
+      afterwards would show one thing and run another. */
+  const locked = Boolean(placed);
+
+  useEffect(() => {
+    fetch(`${GATEWAY}/v1/agents`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        setAgents(d.agents ?? []);
+        const def = (d.agents ?? []).find((a: Agent) => a.default) ?? d.agents?.[0];
+        if (def) { setAgentId(def.id); setEffort(def.defaultEffort); }
+      })
+      .catch(() => {});
+  }, []);
+
+  const agent = agents.find((a) => a.id === agentId);
+
+  /** Reasoning levels are per model: Astra has five, GLM and Kimi three, MiniMax a toggle. */
+  function pickAgent(id: string) {
+    if (locked) return;
+    setAgentId(id);
+    const a = agents.find((x) => x.id === id);
+    if (a) setEffort(a.defaultEffort);
+  }
 
   /** Submitting is free; the agent pays when it rents. What this buys is a place in the line. */
   async function send() {
@@ -36,7 +70,7 @@ export function Composer() {
     try {
       const r = await fetch(`${GATEWAY}/v1/jobs`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, agent: agentId, effort, asset }),
       });
       const j = await r.json();
       if (r.ok) { setPlaced({ id: j.id, position: j.position }); setValue(""); }
@@ -68,16 +102,53 @@ export function Composer() {
           placeholder="Describe a job. It will pick a machine, pay for it, and get to work."
           className="w-full resize-none bg-transparent px-5 pt-4 pb-2 text-[15px] leading-[1.55] text-white placeholder:text-white/30 focus:outline-none"
         />
-        <div className="flex items-center gap-2 px-3 pb-3">
-          <span className="kl-num flex items-center gap-2 rounded-[8px] border border-white/10 px-2.5 py-1.5 text-[11.5px] text-white/60">
+        <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+          <label className="kl-num flex items-center gap-2 rounded-[8px] border border-white/10 px-2.5 py-1.5 text-[11.5px] text-white/70">
             <span aria-hidden className="size-1.5 rounded-full bg-[var(--kl-amber)]" />
-            GPT-6 Astra
-          </span>
-          <span className="kl-num rounded-[8px] border border-white/10 px-2.5 py-1.5 text-[11.5px] text-white/45">
-            Reasoning high
-          </span>
-          <span className="kl-num hidden rounded-[8px] border border-white/10 px-2.5 py-1.5 text-[11.5px] text-white/45 sm:inline">
-            x402 · testnet
+            <select
+              value={agentId}
+              onChange={(e) => pickAgent(e.target.value)}
+              disabled={locked}
+              title={agent?.note}
+              className="cursor-pointer appearance-none bg-transparent pr-1 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {agents.map((a) => (
+                <option key={a.id} value={a.id} className="bg-[#171310]">{a.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="kl-num flex items-center gap-1.5 rounded-[8px] border border-white/10 px-2.5 py-1.5 text-[11.5px] text-white/45">
+            <span>Reasoning</span>
+            <select
+              value={effort}
+              onChange={(e) => !locked && setEffort(e.target.value)}
+              disabled={locked}
+              className="cursor-pointer appearance-none bg-transparent focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {(agent?.efforts ?? ["medium"]).map((e) => (
+                <option key={e} value={e} className="bg-[#171310]">{e}</option>
+              ))}
+            </select>
+          </label>
+
+          {/* what the agent pays in. Both are always accepted; this picks which it reaches for. */}
+          <span className="kl-num flex items-center gap-1 rounded-[8px] border border-white/10 py-1 pr-1 pl-2.5 text-[11.5px] text-white/45">
+            <Image src="/images/rail/x402.svg" alt="x402" width={26} height={10} className="mr-1 h-[10px] w-auto opacity-70" unoptimized />
+            {(["usdc", "hbar"] as const).map((a) => (
+              <button
+                key={a}
+                type="button"
+                disabled={locked}
+                onClick={() => !locked && setAsset(a)}
+                className={`flex cursor-pointer items-center gap-1 rounded-[6px] px-1.5 py-1 transition-colors disabled:cursor-not-allowed ${
+                  asset === a ? "bg-white/12 text-white/85" : "text-white/35 hover:text-white/60"
+                }`}
+              >
+                <Image src={`/images/rail/${a}.svg`} alt="" width={12} height={12} className="size-3" unoptimized />
+                {a.toUpperCase()}
+              </button>
+            ))}
           </span>
           <span className="flex-1" />
           <button

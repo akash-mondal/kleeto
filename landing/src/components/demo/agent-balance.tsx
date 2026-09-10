@@ -44,7 +44,7 @@ export function AgentBalance() {
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px]">
       <span className="flex items-center gap-2">
         <span aria-hidden className="size-1.5 rounded-full bg-[var(--kl-amber)]" />
-        <span className="text-white/45">test agent</span>
+        <span className="text-white/45">demo agent</span>
         <a
           href={b?.explorer ?? "#"}
           target="_blank"

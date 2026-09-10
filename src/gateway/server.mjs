@@ -19,6 +19,7 @@ import { viewerPage, attachLiveSocket } from "./live.mjs";
 import { Meter, verifyChain, genesis } from "./meter.mjs";
 import { control, handleFor, ACTIONS } from "./control.mjs";
 import { JobQueue } from "./jobs.mjs";
+import { agentCatalogue, resolveAgent, DEFAULT_AGENT } from "../agents.mjs";
 import { randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
@@ -118,6 +119,12 @@ app.get("/healthz", (c) => c.json({
  * installed on it and costs nothing extra.
  */
 app.get("/v1/images", (c) => c.json({ images: imageCatalogue() }));
+
+/**
+ * Which agents a job can be given to, and what reasoning each one actually offers. The levels
+ * differ per model, so they travel with the model rather than as one shared scale.
+ */
+app.get("/v1/agents", (c) => c.json({ agents: agentCatalogue(), default: DEFAULT_AGENT }));
 
 app.get("/v1/lanes", async (c) => {
   const cat = await catalogue(net);
@@ -251,8 +258,20 @@ app.post("/v1/jobs", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const prompt = String(body.prompt ?? "").trim();
   if (prompt.length < 10) return c.json({ error: "say what the agent should do, in a sentence or more" }, 400);
+  let agent;
+  try {
+    agent = resolveAgent(body.agent, body.effort);
+  } catch (e) {
+    return c.json({ error: String(e.message) }, 400);
+  }
+  const asset = String(body.asset ?? "usdc").toLowerCase();
+  if (!["usdc", "hbar"].includes(asset)) {
+    return c.json({ error: `pay in usdc or hbar, not ${asset}` }, 400);
+  }
+
   const job = jobs.submit({
     prompt, image: body.image ?? null, lane: body.lane ?? null,
+    agent: agent.id, effort: agent.effort, asset,
     by: (c.req.header("x-forwarded-for") ?? "").split(",")[0] || null,
   });
   return c.json({ ...job, board: jobs.board().capacity }, 202);
@@ -277,7 +296,7 @@ app.post("/v1/jobs/claim", async (c) => {
   const { worker } = await c.req.json().catch(() => ({}));
   const job = jobs.claim(worker);
   if (!job) return c.json({ job: null, ...jobs.board() }, 200);
-  return c.json({ job: { id: job.id, prompt: job.prompt, image: job.image, lane: job.lane } });
+  return c.json({ job: { id: job.id, prompt: job.prompt, image: job.image, lane: job.lane, agent: job.agent, effort: job.effort, asset: job.asset } });
 });
 
 app.post("/v1/jobs/:id/report", async (c) => {
