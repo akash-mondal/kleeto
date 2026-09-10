@@ -697,12 +697,24 @@ app.post("/v1/leases/:id/stop", async (c) => {
     ...(fin.mb ? { mbUsed: fin.mb } : {}),
   });
   live.delete(l.id);
-  /* A returned machine is not the run's machine any more. Leaving the id on the job points a
-     watcher's live panel at a viewer that will never send another frame, which looks like a
-     freeze rather than like the handing back it actually was. */
+  /**
+   * A returned machine is not the run's machine any more — but the run may still hold another.
+   *
+   * An agent that borrows a stealth browser mid-job hands it back and carries on with the
+   * desktop it never let go of. Clearing the lease outright left the panel showing "changing
+   * machines" for the rest of the run while a perfectly good desktop sat there working, so
+   * hand the watcher back to whichever of this run's machines is still open.
+   */
   const watchingStop = c.req.header("x-kleeto-job");
   if (watchingStop && jobs.thread(watchingStop)?.leaseId === l.id) {
-    jobs.update(watchingStop, { leaseId: null, liveUrl: null });
+    const mine = new Set((jobs.thread(watchingStop)?.events ?? [])
+      .filter((e) => e.kind === "rent" && e.leaseId).map((e) => e.leaseId));
+    const stillOpen = store.all()
+      .filter((x) => mine.has(x.id) && x.id !== l.id && x.state !== "closed")
+      .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))[0];
+    jobs.update(watchingStop, stillOpen
+      ? { leaseId: stillOpen.id, liveUrl: `${ORIGIN}/live/${stillOpen.viewToken}` }
+      : { leaseId: null, liveUrl: null });
   }
   noteJob(c, {
     kind: "return", leaseId: l.id, lane: l.lane,

@@ -175,15 +175,30 @@ export function attachLiveSocket(httpServer, { store, resolveUpstream, grabFrame
     const up = new WebSocket(wsUrl, { perMessageDeflate: false });
     let id = 0;
     let session = null;
+    let lastFrame = 0;
     const send = (method, params, sessionId) =>
       up.send(JSON.stringify({ id: ++id, method, params, ...(sessionId ? { sessionId } : {}) }));
 
+    /**
+     * Screencast, plus a heartbeat.
+     *
+     * Chrome only emits a screencast frame when something repaints. A browser parked on a
+     * finished page therefore sends one frame and then nothing, which on a watcher's screen is
+     * indistinguishable from a broken stream — and a browser reading a page is mostly parked.
+     * So: grab a picture immediately rather than waiting for the first repaint, and grab
+     * another whenever a second has passed without one arriving.
+     */
     const startScreencast = (sessionId) => {
       send("Page.enable", {}, sessionId);
       send("Page.startScreencast",
         { format: "jpeg", quality: 70, maxWidth: 1280, maxHeight: 720, everyNthFrame: 1 },
         sessionId);
       say({ state: "live" });
+      const shot = () => send("Page.captureScreenshot", { format: "jpeg", quality: 60 }, sessionId);
+      shot();
+      const beat = setInterval(() => { if (Date.now() - lastFrame > 1200) shot(); }, 1000);
+      up.on("close", () => clearInterval(beat));
+      client.on("close", () => clearInterval(beat));
     };
 
     up.on("open", () => {
@@ -211,8 +226,15 @@ export function attachLiveSocket(httpServer, { store, resolveUpstream, grabFrame
       if (msg.error && !session) { session = undefined; startScreencast(undefined); return; }
 
       if (msg.method === "Page.screencastFrame") {
+        lastFrame = Date.now();
         try { client.send(msg.params.data); } catch {}
         send("Page.screencastAck", { sessionId: msg.params.sessionId }, msg.sessionId);
+        return;
+      }
+      /* the heartbeat's answer: a still of a page that is not repainting */
+      if (msg.result?.data && session !== null) {
+        lastFrame = Date.now();
+        try { client.send(msg.result.data); } catch {}
       }
     });
 
