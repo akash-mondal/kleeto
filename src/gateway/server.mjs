@@ -18,6 +18,7 @@ import { buildChallenge, decodePaymentHeader, matchRequirements, Facilitator, X4
 import { viewerPage, attachLiveSocket } from "./live.mjs";
 import { Meter, verifyChain, genesis } from "./meter.mjs";
 import { control, handleFor, ACTIONS } from "./control.mjs";
+import { JobQueue } from "./jobs.mjs";
 import { randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
@@ -43,6 +44,15 @@ const meter = new Meter({
   onAnchor: (a) => hcs?.anchor(a).catch(() => {}),
 });
 let hcs = null;   // set at boot when a topic is configured
+
+/**
+ * Two at a time, because that is what the upstream plan and this VM actually carry. Everyone
+ * else waits in a line they can see.
+ */
+const jobs = new JobQueue({
+  path: process.env.JOB_STORE ?? "var/jobs.json",
+  concurrency: Number(process.env.JOB_CONCURRENCY ?? 2),
+});
 
 /** Everything the meter says, fanned out to whoever is watching a lease. */
 const watchers = new Map();   // leaseId -> Set<(event, data) => void>
@@ -230,6 +240,53 @@ app.post("/v1/sessions/:id/dev-credit", async (c) => {
   return c.json({ sessionId: s.id, balanceTinybar: balance, settled: false, warning: "dev credit, no payment settled" });
 });
 
+/* --------------------------------------------------------------------- jobs ---- */
+/**
+ * Ask the agent to do something.
+ *
+ * Free to submit: the money moves when the agent rents a machine, out of its own wallet, not
+ * here. What this buys is a place in the line.
+ */
+app.post("/v1/jobs", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const prompt = String(body.prompt ?? "").trim();
+  if (prompt.length < 10) return c.json({ error: "say what the agent should do, in a sentence or more" }, 400);
+  const job = jobs.submit({
+    prompt, image: body.image ?? null, lane: body.lane ?? null,
+    by: (c.req.header("x-forwarded-for") ?? "").split(",")[0] || null,
+  });
+  return c.json({ ...job, board: jobs.board().capacity }, 202);
+});
+
+app.get("/v1/jobs", (c) => c.json(jobs.board()));
+app.get("/v1/jobs/:id", (c) => {
+  const v = jobs.view(c.req.param("id"));
+  return v ? c.json(v) : c.json({ error: "no such job" }, 404);
+});
+
+/**
+ * The worker side. A worker claims one job at a time and reports as it goes; the queue hands
+ * out nothing when the machines are full, which is what keeps a third caller from becoming a
+ * third machine.
+ */
+const workerAuth = (c) =>
+  !process.env.WORKER_TOKEN || c.req.header("x-worker-token") === process.env.WORKER_TOKEN;
+
+app.post("/v1/jobs/claim", async (c) => {
+  if (!workerAuth(c)) return c.json({ error: "not authorised" }, 401);
+  const { worker } = await c.req.json().catch(() => ({}));
+  const job = jobs.claim(worker);
+  if (!job) return c.json({ job: null, ...jobs.board() }, 200);
+  return c.json({ job: { id: job.id, prompt: job.prompt, image: job.image, lane: job.lane } });
+});
+
+app.post("/v1/jobs/:id/report", async (c) => {
+  if (!workerAuth(c)) return c.json({ error: "not authorised" }, 401);
+  const body = await c.req.json().catch(() => ({}));
+  const v = jobs.update(c.req.param("id"), body);
+  return v ? c.json(v) : c.json({ error: "no such job" }, 404);
+});
+
 /* --------------------------------------------------------------------- demo ---- */
 /**
  * What the try-it page needs: the demo agent's real balance, straight off the ledger.
@@ -260,6 +317,7 @@ app.get("/v1/demo", async (c) => {
       usdc: { units: Number(usdcRaw?.balance ?? 0), display: (Number(usdcRaw?.balance ?? 0) / 1e6).toFixed(6) },
       usdPerHbar: cat.usdPerHbar,
       explorer: hashscanAccount(net, agentId),
+      queue: jobs.board(),
       lanes: Object.values(cat.lanes).map((l) => ({ lane: l.id, kind: l.family, usdPerHour: l.usdPerHour })),
     };
     balanceCache = { at: Date.now(), body };

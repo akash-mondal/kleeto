@@ -6,6 +6,7 @@ import "@/shaders/threeui.css";
 import { PredictiveArcCanvas } from "@/components/demo/shaders";
 import { AgentBalance } from "@/components/demo/agent-balance";
 import { Composer } from "@/components/demo/composer";
+import { QueueBoard } from "@/components/demo/queue-board";
 import { KleetoLockup } from "@/components/kleeto/kleeto-logo";
 
 const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-archivo", display: "swap" });
@@ -37,8 +38,9 @@ export default function DemoPage() {
           <AgentBalance />
         </header>
 
-        <main className="flex flex-1 items-center justify-center px-6 py-10 md:px-10">
+        <main className="flex flex-1 flex-col items-center justify-center px-6 py-10 md:px-10">
           <Composer />
+          <QueueBoard />
         </main>
 
         <footer className="px-6 pb-6 text-center text-[12px] text-white/30 md:px-10">

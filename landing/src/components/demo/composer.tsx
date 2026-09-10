@@ -21,8 +21,27 @@ const PRESETS = [
     prompt: "Rent a browser. Find eight used road bikes under six hundred within fifteen miles on a classifieds site, and give me price, frame size and the link for each." },
 ];
 
-export function Composer({ onRun }: { onRun?: (prompt: string) => void }) {
+const GATEWAY = process.env.NEXT_PUBLIC_KLEETO_GATEWAY ?? "https://api.kleeto.fun";
+
+export function Composer() {
   const [value, setValue] = useState("");
+  const [sending, setSending] = useState(false);
+  const [placed, setPlaced] = useState<{ id: string; position: number } | null>(null);
+
+  /** Submitting is free; the agent pays when it rents. What this buys is a place in the line. */
+  async function send() {
+    const prompt = value.trim();
+    if (prompt.length < 10 || sending) return;
+    setSending(true);
+    try {
+      const r = await fetch(`${GATEWAY}/v1/jobs`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const j = await r.json();
+      if (r.ok) { setPlaced({ id: j.id, position: j.position }); setValue(""); }
+    } finally { setSending(false); }
+  }
 
   return (
     <div className="w-full max-w-[760px]">
@@ -55,7 +74,7 @@ export function Composer({ onRun }: { onRun?: (prompt: string) => void }) {
             GPT-6 Astra
           </span>
           <span className="kl-num rounded-[8px] border border-white/10 px-2.5 py-1.5 text-[11.5px] text-white/45">
-            High
+            Reasoning high
           </span>
           <span className="kl-num hidden rounded-[8px] border border-white/10 px-2.5 py-1.5 text-[11.5px] text-white/45 sm:inline">
             x402 · testnet
@@ -63,8 +82,8 @@ export function Composer({ onRun }: { onRun?: (prompt: string) => void }) {
           <span className="flex-1" />
           <button
             type="button"
-            disabled={!value.trim()}
-            onClick={() => onRun?.(value.trim())}
+            disabled={!value.trim() || sending}
+            onClick={send}
             className="flex size-8 cursor-pointer items-center justify-center rounded-[8px] bg-[var(--kl-amber)] text-[#171310] transition-opacity disabled:cursor-not-allowed disabled:opacity-25"
             aria-label="Send"
           >
@@ -74,6 +93,14 @@ export function Composer({ onRun }: { onRun?: (prompt: string) => void }) {
           </button>
         </div>
       </div>
+
+      {placed ? (
+        <p className="kl-num mt-3 text-[12px] text-[var(--kl-amber)]">
+          {placed.position > 0
+            ? `queued at position ${placed.position} — it starts when a machine frees up`
+            : "picked up — the agent is renting a machine now"}
+        </p>
+      ) : null}
 
       {/* what it can be asked, which is also what the images are for */}
       <div className="mt-4 grid gap-2 sm:grid-cols-2">

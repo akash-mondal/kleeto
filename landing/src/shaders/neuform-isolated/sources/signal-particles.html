@@ -247,13 +247,24 @@
 
                                 const highlightCheck = Math.sin(i * 12.34) * Math.cos(j * 56.78);
                                 
+                                /* KLEETO DEVIATION from the registered source: the authored
+                                   field is slate-400 with blue and purple sparks, which is a
+                                   cool palette sitting under a warm amber product. The field
+                                   is the same warm white the rest of the site uses and the two
+                                   accents are the brand amber, one bright and one deeper so the
+                                   sparks still read as two tones. Only the three colour literals
+                                   changed; the wave maths, density and alpha are untouched.
+                                   Replaced:
+                                       '#3b82f6'  blue highlight
+                                       '#8b5cf6'  purple highlight
+                                       rgba(148, 163, 184, alpha)  slate field */
                                 if (highlightCheck > 0.98) {
-                                    ctx.fillStyle = '#3b82f6'; // Blue highlight
+                                    ctx.fillStyle = '#f5b301'; // amber spark
                                 } else if (highlightCheck < -0.98) {
-                                    ctx.fillStyle = '#8b5cf6'; // Purple highlight
+                                    ctx.fillStyle = '#c9861f'; // deeper amber spark
                                 } else {
                                     const alpha = Math.min(0.6, (value - 0.1) * 0.8);
-                                    ctx.fillStyle = `rgba(148, 163, 184, ${alpha})`;
+                                    ctx.fillStyle = `rgba(244, 238, 228, ${alpha})`;
                                 }
                                 
                                 ctx.fill();
