@@ -30,9 +30,9 @@ const azeret = Azeret_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kleeto: your agent's own live desktop, paid by the second",
+  title: "Kleeto: your agent's own desktop and browser, paid by the second",
   description:
-    "Your agent answers a 402, gets a real Linux desktop it can open apps on, and pays in USDC on Hedera from its own account. No signup, no API key, no card.",
+    "Your agent answers a 402, gets a real desktop to open applications on and a browser that gets through the blockers, and pays in HBAR or USDC on Hedera from its own account. No signup, no API key, no card.",
 };
 
 export default function KleetoPage() {

@@ -27,10 +27,27 @@ export function ChatPanel({
 }) {
   const [draft, setDraft] = useState("");
   const [step, setStep] = useState<"focus" | "dive" | "static">("focus");
+  /** null follows the run; a click pins one face until the run has something new to show. */
+  const [wants, setWants] = useState<"talk" | "screen" | null>(null);
+  const dived = useRef(false);
   const scroller = useRef<HTMLDivElement>(null);
   const pending = run.pending;
   const live = Boolean(run.liveUrl) && (run.phase === "working" || run.phase === "ended");
   const connecting = run.phase === "working" && !live;
+
+  /**
+   * An agent is not one machine and one conversation in that order.
+   *
+   * It takes a desktop, hits a wall, hands it back for a stealth browser, comes back to the
+   * desktop, and asks a question in the middle of all that. So the panel is not a slideshow
+   * that runs once: it follows what is happening, and a question always wins, because that is
+   * the only state where the run is waiting on the person rather than the other way round.
+   */
+  useEffect(() => { if (pending) setWants(null); }, [pending?.qid]);
+  useEffect(() => { if (run.leaseId) setWants(null); }, [run.leaseId]);
+
+  const auto: "talk" | "screen" = pending ? "talk" : live || connecting ? "screen" : "talk";
+  const face = wants === "screen" && !live && !connecting ? "talk" : (wants ?? auto);
 
   /**
    * Approval starts a sequence, not a spinner.
@@ -41,6 +58,10 @@ export function ChatPanel({
    */
   useEffect(() => {
     if (!connecting) return undefined;
+    /* The fall into the globe is the moment work begins. Doing it again every time the agent
+       swaps machines mid-run would be a title sequence in the middle of the film. */
+    if (dived.current) { setStep("static"); return undefined; }
+    dived.current = true;
     setStep("focus");
     const a = setTimeout(() => setStep("dive"), 900);
     const b = setTimeout(() => setStep("static"), 2400);
@@ -61,19 +82,21 @@ export function ChatPanel({
     setDraft("");
   }
 
-  if (live) return <Machine run={run} />;
+  if (face === "screen") {
+    return (
+      <div className="relative flex h-full min-h-0 flex-col">
+        {live ? <Machine run={run} /> : <Tuning run={run} stage={stage} />}
+        <Swap face={face} setWants={setWants} waiting={Boolean(pending)} hasScreen={live || connecting} />
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <Globe stage={stage} />
-      {stage === "static" ? <Static /> : null}
+      <Swap face={face} setWants={setWants} waiting={false} hasScreen={live || connecting} />
 
-      {/* the conversation, which leaves the moment the machine is being fetched */}
-      <div
-        className={`relative z-10 flex min-h-0 flex-1 flex-col transition-opacity duration-[700ms] ${
-          stage === "idle" ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
-      >
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col">
         <div ref={scroller} className="kl-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <ol className="flex flex-col gap-5">
             {run.messages.map((m, i) => (
@@ -84,6 +107,60 @@ export function ChatPanel({
         </div>
         <Composer run={run} draft={draft} setDraft={setDraft} send={send} sending={sending} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Which face you are looking at, and a way to look at the other one.
+ *
+ * Small and in the corner: the run decides this correctly almost always, and the control is
+ * there for the times it does not — reading back what was said while the machine works, or
+ * going to watch after answering a question.
+ */
+function Swap({
+  face,
+  setWants,
+  waiting,
+  hasScreen,
+}: {
+  face: "talk" | "screen";
+  setWants: (v: "talk" | "screen" | null) => void;
+  waiting: boolean;
+  hasScreen: boolean;
+}) {
+  if (!hasScreen) return null;
+  return (
+    <div className="absolute top-3 right-3 z-30 flex items-center gap-0.5 rounded-[9px] border border-white/10 bg-[oklch(0.12_0.006_85/0.86)] p-0.5 backdrop-blur-md">
+      {(["talk", "screen"] as const).map((f) => (
+        <button
+          key={f}
+          type="button"
+          onClick={() => setWants(f)}
+          className={`kl-num relative cursor-pointer rounded-[7px] px-2.5 py-1 text-[9.5px] tracking-[0.14em] uppercase transition-colors ${
+            face === f ? "bg-white/12 text-white/85" : "text-white/35 hover:text-white/65"
+          }`}
+        >
+          {f === "talk" ? "chat" : "screen"}
+          {f === "talk" && waiting && face !== "talk" ? (
+            <span aria-hidden className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-[var(--kl-amber)]" />
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Between machines: the box the next one will appear in, tuning until it does. */
+function Tuning({ run, stage }: { run: Run; stage: Stage }) {
+  const first = !run.events.some((e) => e.kind === "return");
+  return (
+    <div className="relative flex h-full min-h-0 flex-col bg-black">
+      <div className="relative min-h-0 flex-1">
+        <Globe stage={stage} />
+        {stage === "static" ? <Static label={first ? "finding a machine" : "changing machines"} /> : null}
+      </div>
+      <CardStream messages={run.messages} ended={run.phase === "ended"} />
     </div>
   );
 }

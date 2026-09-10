@@ -41,9 +41,10 @@ export function KleetoHero() {
 
         <Reveal className="w-full" delayMs={80} y={15.6}>
           <p className="mx-auto mt-6 w-full max-w-[52ch] text-[15px] leading-[1.6] text-kl-muted md:mt-7 md:text-[16px]">
-            It answers a <strong className="font-medium text-kl-fg">402</strong>, gets a real Linux desktop it can open
-            apps on, and pays in <strong className="font-medium text-kl-fg">HBAR or USDC on Hedera</strong> from its own
-            account.
+            It answers a <strong className="font-medium text-kl-fg">402</strong>, gets a real{" "}
+            <strong className="font-medium text-kl-fg">desktop</strong> to open applications on and a{" "}
+            <strong className="font-medium text-kl-fg">browser</strong> that gets through the blockers, and pays in{" "}
+            <strong className="font-medium text-kl-fg">HBAR or USDC on Hedera</strong> from its own account.
             No signup, no API key, no card.
           </p>
         </Reveal>

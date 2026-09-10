@@ -697,6 +697,13 @@ app.post("/v1/leases/:id/stop", async (c) => {
     ...(fin.mb ? { mbUsed: fin.mb } : {}),
   });
   live.delete(l.id);
+  /* A returned machine is not the run's machine any more. Leaving the id on the job points a
+     watcher's live panel at a viewer that will never send another frame, which looks like a
+     freeze rather than like the handing back it actually was. */
+  const watchingStop = c.req.header("x-kleeto-job");
+  if (watchingStop && jobs.thread(watchingStop)?.leaseId === l.id) {
+    jobs.update(watchingStop, { leaseId: null, liveUrl: null });
+  }
   noteJob(c, {
     kind: "return", leaseId: l.id, lane: l.lane,
     seconds: secondsUsed, tinybar: proof?.totalTinybar ?? secondsUsed * l.creditTinybar,

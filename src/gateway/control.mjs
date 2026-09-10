@@ -9,6 +9,7 @@
  * lease id is the only handle a client ever holds; and every call requires an open lease,
  * because control is what the meter is charging for and a paused lease has stopped paying.
  */
+import { browserControl } from "./cdp.mjs";
 import { SolariAdapter } from "../adapters/solari.mjs";
 
 /**
@@ -42,8 +43,19 @@ export const ACTIONS = {
  * arguments.
  */
 export async function control(lease, handle, { action, ...args }) {
-  if (!handle) throw Object.assign(new Error("this lease has no control channel"), { status: 409 });
   const allowed = ACTIONS[lease.kind] ?? [];
+  /* A browser is driven over devtools, not over the vendor's own handle: both browser lanes
+     hand back an endpoint and neither hands back a filesystem. Dispatch before the handle check,
+     because a browser lease legitimately has no shell to have a channel to. */
+  if (lease.kind === "browser") {
+    if (!allowed.includes(action)) {
+      throw Object.assign(
+        new Error(`browser leases do not support "${action}"; try ${allowed.join(", ")}`),
+        { status: 400 });
+    }
+    return await browserControl(lease, { action, ...args });
+  }
+  if (!handle) throw Object.assign(new Error("this lease has no control channel"), { status: 409 });
   if (!allowed.includes(action)) {
     throw Object.assign(
       new Error(`${lease.kind} leases do not support "${action}"; try ${allowed.join(", ")}`),
