@@ -139,7 +139,9 @@ async function run(job) {
       }
       await post(`/v1/jobs/${job.id}/report`, {
         state: code === 0 ? "done" : "failed",
-        result: summary ?? `codex exited ${code}`,
+        /* name the runner that actually ran: "codex exited" on a Cline job reads as a lie
+           to anyone reading the board, and three of the four agents here are Cline. */
+        result: summary ?? `${spec.label} (${spec.runner}) exited ${code ?? "on a signal"}`,
       });
       log(`${job.id} finished (${code === 0 ? "done" : "failed"})`);
       resolve();

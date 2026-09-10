@@ -16,8 +16,9 @@ export const AGENTS = {
     mark: "openai",
     runner: "codex",
     model: "gpt-6-astra",
-    /** Codex's own scale. `medium` is the default because it is the vendor's. */
-    efforts: ["low", "medium", "high", "xhigh", "max"],
+    /** Codex's own scale, stopping at xhigh: `max` is not offered on a shared demo machine,
+        where one run thinking without limit is one run nobody else can start. */
+    efforts: ["low", "medium", "high", "xhigh"],
     defaultEffort: "medium",
     images: true,
     context: 1_050_000,

@@ -35,6 +35,18 @@ const EFFORT_NOTES: Record<string, string> = {
   on: "Thinking budget on",
 };
 
+/**
+ * Which vendor's mark each model wears. The gateway sends this too, next to the model it
+ * belongs to, but an older gateway would leave every model wearing OpenAI's rosette; the
+ * picture on the page should not wait on a deploy to tell the truth.
+ */
+const MARKS: Record<string, AgentMark> = {
+  "gpt-6-astra": "openai",
+  "glm-5.3-flash": "zai",
+  "kimi-k3": "moonshot",
+  "minimax-m3": "minimax",
+};
+
 const GATEWAY = process.env.NEXT_PUBLIC_KLEETO_GATEWAY ?? "https://api.kleeto.fun";
 
 type Agent = {
@@ -93,7 +105,7 @@ export function Composer() {
       <div className="flex flex-col items-center">
         {/* the model's own mark, drawn rather than pasted in as a logo file */}
         <div className="pointer-events-none mb-7 h-[76px] w-[76px]">
-          <AgentOrb mark={agent?.mark ?? "openai"} size={64} />
+          <AgentOrb mark={agent?.mark ?? MARKS[agentId] ?? "openai"} size={64} />
         </div>
         <h1 className="kl-display text-center text-[30px] leading-[1.15] font-medium text-white md:text-[36px]">
           What should the agent do?
@@ -130,6 +142,7 @@ export function Composer() {
         <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
           <Picker
             dot
+            width="w-[158px]"
             value={agentId}
             onChange={pickAgent}
             disabled={locked}
@@ -142,6 +155,7 @@ export function Composer() {
 
           <Picker
             label="Reasoning"
+            width="w-[168px]"
             value={effort}
             onChange={setEffort}
             disabled={locked}

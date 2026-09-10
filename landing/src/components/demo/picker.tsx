@@ -19,6 +19,7 @@ export function Picker({
   onChange,
   disabled = false,
   dot = false,
+  width,
 }: {
   label?: string;
   value: string;
@@ -26,6 +27,8 @@ export function Picker({
   onChange: (v: string) => void;
   disabled?: boolean;
   dot?: boolean;
+  /** Fixed width, so the bar does not reflow every time a different model is chosen. */
+  width?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -86,7 +89,7 @@ export function Picker({
         aria-controls={open ? listId : undefined}
         onClick={() => !disabled && setOpen((o) => !o)}
         onKeyDown={onKeyDown}
-        className={`kl-num flex cursor-pointer items-center gap-1.5 rounded-[8px] border px-2.5 py-1.5 text-[11.5px] transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
+        className={`kl-num flex cursor-pointer items-center gap-1.5 rounded-[8px] border px-2.5 py-1.5 text-[11.5px] transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${width ?? ""} ${
           open
             ? "border-white/25 bg-white/[0.07]"
             : "border-white/10 hover:border-white/20"
@@ -95,15 +98,15 @@ export function Picker({
         {dot ? (
           <span
             aria-hidden
-            className="size-1.5 rounded-full bg-[var(--kl-amber)]"
+            className="size-1.5 shrink-0 rounded-full bg-[var(--kl-amber)]"
           />
         ) : null}
-        {label ? <span className="text-white/45">{label}</span> : null}
-        <span className="text-white/80">{current?.label ?? value}</span>
+        {label ? <span className="shrink-0 text-white/45">{label}</span> : null}
+        <span className="truncate text-white/80">{current?.label ?? value}</span>
         <svg
           viewBox="0 0 10 6"
           aria-hidden
-          className={`ml-0.5 w-[9px] text-white/35 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`ml-auto w-[9px] shrink-0 text-white/35 transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
           strokeWidth="1.4"
