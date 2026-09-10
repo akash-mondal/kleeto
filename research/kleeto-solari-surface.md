@@ -58,6 +58,15 @@ stealth with a US proxy. Both calls hang for 61s before the 503, which reads as 
 pool that never fills rather than a fast rejection. The fast pool answers in 1.4s in the same
 minute, so this is the stealth fleet specifically and not the browser service.
 
+Retested 2026-09-10 at 05:44 UTC after word that the pool was back: still `fleet: empty`,
+still the 61-second hang, for `{stealth:true}` and `{stealth:true, proxy:"us"}`, and the
+vendor's own MCP client (`solari_browser_create` with its stealth default) fails the same way.
+Alternate spellings (`mode:"stealth"`, `pool:"stealth"`) return 201 in a second, but
+`scripts/pool-fingerprint.mjs` shows they are plain fast-pool sessions: identical Chrome
+151.0.7922.34, identical plugin count and core count, same AWS us-west-1 egress range as `{}`.
+The fields are ignored, not honoured. Seven days after the "resolved tomorrow" estimate, the
+stealth fleet has never once had capacity on this key.
+
 `browser-stealth` still stays out of the lane table. The reason has changed: it is no longer
 plan-gated, it is that the pool is empty, so the lane cannot be measured and a lane we cannot
 serve is not a lane.
