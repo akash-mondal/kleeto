@@ -53,8 +53,8 @@ export function KleetoNav() {
             <PillButton href="#" variant="ghost" className="px-5 py-2.5">
               Read the docs
             </PillButton>
-            <PillButton href="#" className="px-5 py-2.5">
-              Rent free
+            <PillButton href="/demo" className="px-5 py-2.5">
+              Try the demo
             </PillButton>
           </div>
 
@@ -99,8 +99,8 @@ export function KleetoNav() {
               <PillButton href="#" variant="ghost" className="w-full">
                 Read the docs
               </PillButton>
-              <PillButton href="#" className="w-full">
-                Rent free
+              <PillButton href="/demo" className="w-full">
+                Try the demo
               </PillButton>
             </div>
           </div>

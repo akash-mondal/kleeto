@@ -50,8 +50,8 @@ export function KleetoHero() {
 
         <Reveal className="w-full" delayMs={160} y={15.6}>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <PillButton href="#" className="w-full max-w-[280px] sm:w-auto">
-              Rent a live desktop free
+            <PillButton href="/demo" className="w-full max-w-[280px] sm:w-auto">
+              Try the demo
             </PillButton>
             <PillButton href="#" variant="ghost" className="w-full max-w-[280px] sm:w-auto">
               Watch one work

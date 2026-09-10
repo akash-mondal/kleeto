@@ -10,6 +10,15 @@ out/
 .vercel/
 *.tsbuildinfo
 
+# capture output: screenshots and recordings from agent runs are large and regenerable
+agent-runs/**
+!agent-runs/*/
+!agent-runs/*/beats.json
+!agent-runs/*/cursor.json
+
+# runtime state: leases, tick ledgers, snapshot ids. Account-scoped and rebuildable.
+var/
+
 # raw capture material: every take is tens of megabytes and nothing in the site or the
 # film composition reads it directly. The JSON logs beside each take are kept, because
 # the film build script needs the beat and pointer timings to reassemble a shot.

@@ -9,6 +9,13 @@ import type { NextConfig } from "next";
 const MEDIA_CACHE = "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    rules: {
+      // ThreeUI's components load their shader documents with Vite's `?raw` suffix. Teaching
+      // the bundler that suffix is what lets the registered source stay unmodified.
+      "*.html": { loaders: ["raw-loader"], as: "*.js" },
+    },
+  },
   images: {
     // AVIF first: it is meaningfully smaller than WebP on the screen captures this site is
     // built from. Next falls back down the list per what the browser accepts.

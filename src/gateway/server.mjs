@@ -9,7 +9,7 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
 
-import { resolveNetwork, resolveFeePayer, hashscanTx } from "../networks.mjs";
+import { resolveNetwork, resolveFeePayer, hashscanTx, hashscanAccount, mirror } from "../networks.mjs";
 import { catalogue, requireLane } from "../lanes.mjs";
 import { imageCatalogue } from "../images.mjs";
 import { Store, newId } from "./store.mjs";
@@ -228,6 +228,45 @@ app.post("/v1/sessions/:id/dev-credit", async (c) => {
     fanout("paid", { leaseId: l.id, sessionId: s.id, tinybar, asset: "DEV", balanceTinybar: balance });
   }
   return c.json({ sessionId: s.id, balanceTinybar: balance, settled: false, warning: "dev credit, no payment settled" });
+});
+
+/* --------------------------------------------------------------------- demo ---- */
+/**
+ * What the try-it page needs: the demo agent's real balance, straight off the ledger.
+ *
+ * Read-only and unauthenticated on purpose. It exposes an account id and two balances, all of
+ * which are already public on a mirror node, and never the key that spends them.
+ */
+let balanceCache = { at: 0, body: null };
+app.get("/v1/demo", async (c) => {
+  const agentId = process.env.DEMO_AGENT_ID;
+  if (!agentId) return c.json({ error: "no demo agent configured" }, 503);
+
+  // The mirror node is the source of truth and is rate limited; a few seconds of cache keeps
+  // a page that polls from hammering it without ever showing a stale-looking number.
+  if (Date.now() - balanceCache.at < 5000 && balanceCache.body) return c.json(balanceCache.body);
+
+  try {
+    const [acct, cat] = await Promise.all([
+      mirror(net, `/api/v1/accounts/${agentId}?limit=1`),
+      catalogue(net),
+    ]);
+    const tinybar = Number(acct?.balance?.balance ?? 0);
+    const usdcRaw = (acct?.balance?.tokens ?? []).find((t) => t.token_id === net.usdc);
+    const body = {
+      agent: agentId,
+      network: net.caip2,
+      hbar: { tinybar, display: (tinybar / 1e8).toFixed(4), usd: +((tinybar / 1e8) * cat.usdPerHbar).toFixed(2) },
+      usdc: { units: Number(usdcRaw?.balance ?? 0), display: (Number(usdcRaw?.balance ?? 0) / 1e6).toFixed(6) },
+      usdPerHbar: cat.usdPerHbar,
+      explorer: hashscanAccount(net, agentId),
+      lanes: Object.values(cat.lanes).map((l) => ({ lane: l.id, kind: l.family, usdPerHour: l.usdPerHour })),
+    };
+    balanceCache = { at: Date.now(), body };
+    return c.json(body);
+  } catch (e) {
+    return c.json({ error: "could not read the ledger", detail: String(e.message).slice(0, 160) }, 502);
+  }
 });
 
 /* -------------------------------------------------------------------- meter ---- */
