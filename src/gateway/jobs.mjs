@@ -135,7 +135,7 @@ export class JobQueue extends EventEmitter {
       queued: this.queued().length,
       capacity: `${this.running().length} of ${this.concurrency} machines busy`,
       jobs: all.slice(0, 20).map((j) => ({
-        id: j.id, state: j.state, image: j.image,
+        id: j.id, state: j.state, image: j.image, agent: j.agent, effort: j.effort,
         summary: j.prompt.slice(0, 80) + (j.prompt.length > 80 ? "…" : ""),
         seconds: j.startedAt ? Math.round(((j.endedAt ?? Date.now()) - j.startedAt) / 1000) : 0,
         liveUrl: j.state === "running" ? j.liveUrl : null,

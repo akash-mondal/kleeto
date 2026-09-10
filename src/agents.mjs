@@ -12,6 +12,8 @@
 export const AGENTS = {
   "gpt-6-astra": {
     label: "GPT-6 Astra",
+    /** The vendor's own mark, drawn as dots above the prompt. */
+    mark: "openai",
     runner: "codex",
     model: "gpt-6-astra",
     /** Codex's own scale. `medium` is the default because it is the vendor's. */
@@ -24,6 +26,7 @@ export const AGENTS = {
   },
   "glm-5.3-flash": {
     label: "GLM-5.3-Flash",
+    mark: "zai",
     runner: "cline",
     model: "cline-pass/glm-5.3-flash",
     /** No middle setting exists upstream, so none is offered. */
@@ -37,6 +40,7 @@ export const AGENTS = {
   },
   "kimi-k3": {
     label: "Kimi K3",
+    mark: "moonshot",
     runner: "cline",
     model: "cline-pass/kimi-k3",
     efforts: ["low", "high", "max"],
@@ -49,6 +53,7 @@ export const AGENTS = {
   },
   "minimax-m3": {
     label: "MiniMax-M3",
+    mark: "minimax",
     runner: "cline",
     model: "cline-pass/minimax-m3",
     /** Upstream exposes a toggle rather than levels; on and off is the honest rendering. */
@@ -79,5 +84,6 @@ export function resolveAgent(id, effort) {
 export const agentCatalogue = () =>
   Object.entries(AGENTS).map(([id, a]) => ({
     id, label: a.label, efforts: a.efforts, defaultEffort: a.defaultEffort,
-    context: a.context, price: a.price ?? null, note: a.note, default: id === DEFAULT_AGENT,
+    context: a.context, price: a.price ?? null, note: a.note, mark: a.mark,
+    default: id === DEFAULT_AGENT,
   }));

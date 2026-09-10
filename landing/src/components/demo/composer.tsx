@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
-import { BrandOrbs } from "./shaders";
+import { AgentOrb, type AgentMark } from "./agent-orb";
+import { HbarMark, UsdcMark, X402Mark } from "./marks";
+import { Picker } from "./picker";
+import { useBoard } from "./use-board";
 
 /**
  * The prompt bar, shaped like the one an agent developer already uses.
  *
- * The model and its effort are shown and fixed. This workspace runs one agent on one setting,
- * so a dropdown would be a control that does nothing, and a control that does nothing is worse
- * than a label that tells the truth.
+ * Everything on it is chosen before the job is queued and frozen after, because these settings
+ * are what the run is given; letting them change afterwards would show one thing and run
+ * another.
  */
 const PRESETS = [
   { title: "Model something", sub: "Blender, FreeCAD, KiCad",
@@ -22,11 +24,22 @@ const PRESETS = [
     prompt: "Rent a browser. Find eight used road bikes under six hundred within fifteen miles on a classifieds site, and give me price, frame size and the link for each." },
 ];
 
+/** What a level costs you in patience, in the vendors' own terms. */
+const EFFORT_NOTES: Record<string, string> = {
+  low: "Fewest steps, quickest answer",
+  medium: "The vendor's own default",
+  high: "Thinks longer before acting",
+  xhigh: "Slower, for work that needs care",
+  max: "Slowest and most thorough",
+  off: "No thinking budget at all",
+  on: "Thinking budget on",
+};
+
 const GATEWAY = process.env.NEXT_PUBLIC_KLEETO_GATEWAY ?? "https://api.kleeto.fun";
 
 type Agent = {
   id: string; label: string; efforts: string[]; defaultEffort: string;
-  note: string; default: boolean;
+  note: string; mark?: AgentMark; price: { in: number; out: number } | null; default: boolean;
 };
 
 export function Composer() {
@@ -37,8 +50,7 @@ export function Composer() {
   const [agentId, setAgentId] = useState("gpt-6-astra");
   const [effort, setEffort] = useState("medium");
   const [asset, setAsset] = useState<"usdc" | "hbar">("usdc");
-  /** Once a task is in the queue its settings are what it runs with; changing them here
-      afterwards would show one thing and run another. */
+  const { free, queued } = useBoard();
   const locked = Boolean(placed);
 
   useEffect(() => {
@@ -56,7 +68,6 @@ export function Composer() {
 
   /** Reasoning levels are per model: Astra has five, GLM and Kimi three, MiniMax a toggle. */
   function pickAgent(id: string) {
-    if (locked) return;
     setAgentId(id);
     const a = agents.find((x) => x.id === id);
     if (a) setEffort(a.defaultEffort);
@@ -80,9 +91,9 @@ export function Composer() {
   return (
     <div className="w-full max-w-[760px]">
       <div className="flex flex-col items-center">
-        {/* the agent, drawn rather than pasted in as a logo file */}
+        {/* the model's own mark, drawn rather than pasted in as a logo file */}
         <div className="pointer-events-none mb-7 h-[76px] w-[76px]">
-          <BrandOrbs variant="openai" size="medium" mode="dark" speed={1.0} />
+          <AgentOrb mark={agent?.mark ?? "openai"} size={64} />
         </div>
         <h1 className="kl-display text-center text-[30px] leading-[1.15] font-medium text-white md:text-[36px]">
           What should the agent do?
@@ -93,8 +104,22 @@ export function Composer() {
         </p>
       </div>
 
+      {/* said before they type, not after they wait: every machine is out right now */}
+      {free === 0 && !locked ? (
+        <div className="mt-7 flex items-start gap-2.5 rounded-[12px] border border-[var(--kl-amber)]/25 bg-[var(--kl-amber)]/[0.07] px-4 py-3">
+          <span aria-hidden className="mt-[6px] size-1.5 shrink-0 rounded-full bg-[var(--kl-amber)]" />
+          <p className="text-[13px] leading-[1.55] text-white/70">
+            <span className="text-white/90">Both machines are rented right now.</span>{" "}
+            {queued > 0
+              ? `${queued} task${queued === 1 ? " is" : "s are"} already waiting. Send yours and it joins the line`
+              : "Send yours and it takes the next machine returned"}
+            {" — the agent starts the moment one frees up, and nothing is charged for waiting."}
+          </p>
+        </div>
+      ) : null}
+
       {/* the bar */}
-      <div className="mt-9 rounded-[16px] border border-white/12 bg-[oklch(0.19_0.01_85/0.72)] backdrop-blur-xl">
+      <div className="mt-4 rounded-[16px] border border-white/12 bg-[oklch(0.19_0.01_85/0.72)] backdrop-blur-xl">
         <textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -103,52 +128,49 @@ export function Composer() {
           className="w-full resize-none bg-transparent px-5 pt-4 pb-2 text-[15px] leading-[1.55] text-white placeholder:text-white/30 focus:outline-none"
         />
         <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
-          <label className="kl-num flex items-center gap-2 rounded-[8px] border border-white/10 px-2.5 py-1.5 text-[11.5px] text-white/70">
-            <span aria-hidden className="size-1.5 rounded-full bg-[var(--kl-amber)]" />
-            <select
-              value={agentId}
-              onChange={(e) => pickAgent(e.target.value)}
-              disabled={locked}
-              title={agent?.note}
-              className="cursor-pointer appearance-none bg-transparent pr-1 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {agents.map((a) => (
-                <option key={a.id} value={a.id} className="bg-[#171310]">{a.label}</option>
-              ))}
-            </select>
-          </label>
+          <Picker
+            dot
+            value={agentId}
+            onChange={pickAgent}
+            disabled={locked}
+            options={agents.map((a) => ({
+              value: a.id,
+              label: a.label,
+              note: a.price ? `${a.note} $${a.price.in}/$${a.price.out} per Mtok.` : a.note,
+            }))}
+          />
 
-          <label className="kl-num flex items-center gap-1.5 rounded-[8px] border border-white/10 px-2.5 py-1.5 text-[11.5px] text-white/45">
-            <span>Reasoning</span>
-            <select
-              value={effort}
-              onChange={(e) => !locked && setEffort(e.target.value)}
-              disabled={locked}
-              className="cursor-pointer appearance-none bg-transparent focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {(agent?.efforts ?? ["medium"]).map((e) => (
-                <option key={e} value={e} className="bg-[#171310]">{e}</option>
-              ))}
-            </select>
-          </label>
+          <Picker
+            label="Reasoning"
+            value={effort}
+            onChange={setEffort}
+            disabled={locked}
+            options={(agent?.efforts ?? ["medium"]).map((e) => ({
+              value: e, label: e, note: EFFORT_NOTES[e],
+            }))}
+          />
 
           {/* what the agent pays in. Both are always accepted; this picks which it reaches for. */}
-          <span className="kl-num flex items-center gap-1 rounded-[8px] border border-white/10 py-1 pr-1 pl-2.5 text-[11.5px] text-white/45">
-            <Image src="/images/rail/x402.svg" alt="x402" width={26} height={10} className="mr-1 h-[10px] w-auto opacity-70" unoptimized />
-            {(["usdc", "hbar"] as const).map((a) => (
-              <button
-                key={a}
-                type="button"
-                disabled={locked}
-                onClick={() => !locked && setAsset(a)}
-                className={`flex cursor-pointer items-center gap-1 rounded-[6px] px-1.5 py-1 transition-colors disabled:cursor-not-allowed ${
-                  asset === a ? "bg-white/12 text-white/85" : "text-white/35 hover:text-white/60"
-                }`}
-              >
-                <Image src={`/images/rail/${a}.svg`} alt="" width={12} height={12} className="size-3" unoptimized />
-                {a.toUpperCase()}
-              </button>
-            ))}
+          <span className="kl-num flex items-center gap-1 rounded-[8px] border border-white/10 py-1 pr-1 pl-2.5 text-[11.5px]">
+            <X402Mark className="mr-1 h-[9px] w-auto text-white/40" />
+            {(["usdc", "hbar"] as const).map((a) => {
+              const Mark = a === "usdc" ? UsdcMark : HbarMark;
+              const on = asset === a;
+              return (
+                <button
+                  key={a}
+                  type="button"
+                  disabled={locked}
+                  onClick={() => !locked && setAsset(a)}
+                  className={`flex cursor-pointer items-center gap-1.5 rounded-[6px] px-1.5 py-1 transition-colors disabled:cursor-not-allowed ${
+                    on ? "bg-white/12 text-white/85" : "text-white/40 hover:text-white/70"
+                  }`}
+                >
+                  <Mark className={`size-3 ${on ? "" : "opacity-55"}`} />
+                  {a.toUpperCase()}
+                </button>
+              );
+            })}
           </span>
           <span className="flex-1" />
           <button
