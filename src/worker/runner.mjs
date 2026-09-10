@@ -90,6 +90,10 @@ Once approved:
 9. Finish with kleeto_receipt, then kleeto_return, then say what you produced, what fought you,
    and the settlement transaction.
 
+   When you mention a file you delivered, name it; do not paste its download link. The person has
+   it in the run's files, one click away, and a long URL in the middle of a sentence is the worst
+   place to hand someone something.
+
 When something blocks you, escalate before you give up. You have more than one machine and you
 are allowed to use them one after another in a single run:
 

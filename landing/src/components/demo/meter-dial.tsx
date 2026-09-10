@@ -88,9 +88,10 @@ export function MeterDial({
           <span className="kl-num text-[30px] leading-none font-medium text-white tabular-nums">
             {mmss(seconds)}
           </span>
-          <span className="kl-num mt-1.5 text-[9.5px] tracking-[0.16em] text-white/30 uppercase">
+          {/* short, always: the inside of the ring is ~110px and a longer label runs into the notches */}
+          <span className="kl-num mt-1.5 max-w-[104px] truncate text-[9.5px] tracking-[0.16em] text-white/30 uppercase">
             {done
-              ? done.machines > 1 ? `across ${done.machines} machines` : "charged in total"
+              ? done.machines > 1 ? `${done.machines} machines` : "in total"
               : minutes > 0 ? `${minutes} min charged` : "charged"}
           </span>
         </div>
@@ -121,25 +122,24 @@ export function MeterDial({
         </div>
       </dl>
 
-      <p className="mt-3 w-full text-[11px] leading-[1.5] text-white/25">
-        {paused ? (
-          <span className="text-[var(--kl-amber)]/80">
-            Out of credit. The machine is paused, not lost — the agent can top up and carry on.
-          </span>
-        ) : done ? (
-          <>
-            {done.machines > 1 ? "Every machine is back" : "The machine is back"} and the meter has
-            stopped. Every one of these {done.seconds} seconds is a line in the receipt.
-          </>
-        ) : tick?.chainHead ? (
-          <>
-            One notch is one charged second and one line in the receipt.{" "}
-            <span className="kl-num text-white/30">{tick.chainHead.slice(0, 12)}…</span>
-          </>
-        ) : (
-          "No machine yet. The dial starts the second one comes up, and a notch is added for every second it is charged."
-        )}
-      </p>
+      {/* A finished run says so once, in the run's own header. Down here it only crowded the dial,
+          so the footnote is for a meter that is still moving. */}
+      {done ? null : (
+        <p className="mt-3 line-clamp-2 w-full text-[11px] leading-[1.5] text-white/25">
+          {paused ? (
+            <span className="text-[var(--kl-amber)]/80">
+              Out of credit. The machine is paused, not lost — the agent can top up and carry on.
+            </span>
+          ) : tick?.chainHead ? (
+            <>
+              One notch is one charged second.{" "}
+              <span className="kl-num text-white/30">{tick.chainHead.slice(0, 12)}…</span>
+            </>
+          ) : (
+            "No machine yet. A notch is added for every second one is charged."
+          )}
+        </p>
+      )}
     </div>
   );
 }

@@ -28,10 +28,13 @@ export function ChatPanel({
   const [draft, setDraft] = useState("");
   const [step, setStep] = useState<"focus" | "dive" | "static">("focus");
   /** null follows the run; a click pins one face until the run has something new to show. */
-  const [wants, setWants] = useState<"talk" | "screen" | null>(null);
+  const [wants, setWants] = useState<Face | null>(null);
+  /** how many files the person has already looked at, so a new one can be flagged on the tab */
+  const [seenFiles, setSeenFiles] = useState(0);
   const dived = useRef(false);
   const scroller = useRef<HTMLDivElement>(null);
-  const pending = run.pending;
+  /* a finished run is asking nothing, whatever the thread last recorded */
+  const pending = run.phase === "ended" ? null : run.pending;
   const live = Boolean(run.liveUrl) && (run.phase === "working" || run.phase === "ended");
   const connecting = run.phase === "working" && !live;
 
@@ -46,8 +49,27 @@ export function ChatPanel({
   useEffect(() => { if (pending) setWants(null); }, [pending?.qid]);
   useEffect(() => { if (run.leaseId) setWants(null); }, [run.leaseId]);
 
-  const auto: "talk" | "screen" = pending ? "talk" : live || connecting ? "screen" : "talk";
-  const face = wants === "screen" && !live && !connecting ? "talk" : (wants ?? auto);
+  const files = run.events.filter((e) => e.kind === "file" && e.url);
+  const hasScreen = live || connecting;
+  /* A finished run with something to show for itself opens on the thing it made. */
+  const auto: Face = pending ? "talk"
+    : hasScreen ? "screen"
+    : run.phase === "ended" && files.length ? "files"
+    : "talk";
+  const face: Face =
+    wants === "screen" && !hasScreen ? auto
+    : wants === "files" && !files.length ? auto
+    : (wants ?? auto);
+
+  /* Opening the folder, or leaving it, counts as having seen what is in it. */
+  const pick = (f: Face) => {
+    if (f === "files" || face === "files") setSeenFiles(files.length);
+    setWants(f);
+  };
+  const swap = (
+    <Swap face={face} setWants={pick} waiting={Boolean(pending)} hasScreen={hasScreen}
+          fileCount={files.length} unseen={files.length > seenFiles && face !== "files" && run.phase !== "ended"} />
+  );
 
   /**
    * Approval starts a sequence, not a spinner.
@@ -82,11 +104,20 @@ export function ChatPanel({
     setDraft("");
   }
 
+  if (face === "files") {
+    return (
+      <div className="relative flex h-full min-h-0 flex-col">
+        <Files files={files} />
+        {swap}
+      </div>
+    );
+  }
+
   if (face === "screen") {
     return (
       <div className="relative flex h-full min-h-0 flex-col">
         {live ? <Machine run={run} /> : <Tuning run={run} stage={stage} />}
-        <Swap face={face} setWants={setWants} waiting={Boolean(pending)} hasScreen={live || connecting} />
+        {swap}
       </div>
     );
   }
@@ -94,7 +125,7 @@ export function ChatPanel({
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <Globe stage={stage} />
-      <Swap face={face} setWants={setWants} waiting={false} hasScreen={live || connecting} />
+      {swap}
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
         <div ref={scroller} className="kl-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -123,16 +154,21 @@ function Swap({
   setWants,
   waiting,
   hasScreen,
+  fileCount,
+  unseen,
 }: {
-  face: "talk" | "screen";
-  setWants: (v: "talk" | "screen" | null) => void;
+  face: Face;
+  setWants: (v: Face) => void;
   waiting: boolean;
   hasScreen: boolean;
+  fileCount: number;
+  unseen: boolean;
 }) {
-  if (!hasScreen) return null;
+  const tabs: Face[] = ["talk", ...(hasScreen ? ["screen" as const] : []), ...(fileCount ? ["files" as const] : [])];
+  if (tabs.length < 2) return null;
   return (
     <div className="absolute top-3 right-3 z-30 flex items-center gap-0.5 rounded-[9px] border border-white/10 bg-[oklch(0.12_0.006_85/0.86)] p-0.5 backdrop-blur-md">
-      {(["talk", "screen"] as const).map((f) => (
+      {tabs.map((f) => (
         <button
           key={f}
           type="button"
@@ -141,14 +177,79 @@ function Swap({
             face === f ? "bg-white/12 text-white/85" : "text-white/35 hover:text-white/65"
           }`}
         >
-          {f === "talk" ? "chat" : "screen"}
-          {f === "talk" && waiting && face !== "talk" ? (
+          {f === "talk" ? "chat" : f === "screen" ? "screen" : `files ${fileCount}`}
+          {(f === "talk" && waiting && face !== "talk") || (f === "files" && unseen) ? (
             <span aria-hidden className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-[var(--kl-amber)]" />
           ) : null}
         </button>
       ))}
     </div>
   );
+}
+
+/**
+ * The run's own folder.
+ *
+ * What the agent handed over, listed the way a folder lists things: what it is, how big, when
+ * it arrived, and a button to take it. The hash sits in the secondary line because it is the same
+ * hash the receipt carries — there for whoever wants to check, quiet for whoever does not.
+ */
+function Files({ files }: { files: RunEvent[] }) {
+  const total = files.reduce((n, f) => n + (f.bytes ?? 0), 0);
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {/* right padding keeps the heading clear of the tab control in the corner */}
+      <div className="shrink-0 border-b border-white/[0.07] py-4 pr-56 pl-5">
+        <span className="kl-num block text-[10px] tracking-[0.16em] text-white/30 uppercase">workspace</span>
+        <p className="mt-1 text-[13px] text-white/70">
+          {files.length} file{files.length === 1 ? "" : "s"}
+          <span className="kl-num ml-2 text-white/30">{fileSize(total)}</span>
+        </p>
+      </div>
+
+      <ul className="kl-scroll min-h-0 flex-1 overflow-y-auto px-3 py-2">
+        {files.map((f, i) => {
+          const ext = (f.name?.split(".").pop() ?? "file").slice(0, 4).toUpperCase();
+          return (
+            <li
+              key={`${f.at}-${i}`}
+              className="kl-rise grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-[11px] px-2 py-2.5 transition-colors hover:bg-white/[0.03]"
+            >
+              <span className="kl-num flex h-10 w-10 items-center justify-center rounded-[9px] border border-white/10 bg-white/[0.03] text-[9px] tracking-[0.06em] text-[var(--kl-amber)]/80">
+                {ext}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] text-white/85">{f.name}</span>
+                <span className="kl-num mt-0.5 block truncate text-[10.5px] text-white/30">
+                  {fileSize(f.bytes)} · {clock(f.at)}
+                  {f.sha256 ? <span className="text-white/20"> · sha256 {f.sha256.slice(0, 10)}…</span> : null}
+                </span>
+              </span>
+              <a
+                href={f.url}
+                download={f.name}
+                className="flex items-center gap-1.5 rounded-[9px] border border-white/12 px-3 py-1.5 text-[12px] text-white/70 transition-colors hover:border-[var(--kl-amber)]/50 hover:text-white"
+              >
+                <svg viewBox="0 0 16 16" aria-hidden className="size-3.5 text-[var(--kl-amber)]"
+                     fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13h10" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Download
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className="shrink-0 border-t border-white/[0.07] px-5 py-3 text-[11px] leading-[1.5] text-white/25">
+        Kept while this page is open, and for half an hour after you close it.
+      </p>
+    </div>
+  );
+}
+
+function clock(at: number) {
+  return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 /** Between machines: the box the next one will appear in, tuning until it does. */
@@ -199,6 +300,7 @@ function Machine({ run }: { run: Run }) {
  * a before without having to read it again.
  */
 type Card = { at: number; text?: string; file?: RunEvent };
+type Face = "talk" | "screen" | "files";
 
 function CardStream({ run }: { run: Run }) {
   const { messages } = run;

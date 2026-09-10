@@ -77,9 +77,16 @@ export function RunView({
         className="min-h-[520px] lg:min-h-0"
         aside={
           <span className="flex items-center gap-2">
-            <span className="kl-num text-[10px] tracking-[0.1em] text-white/30 lowercase">
-              {PHASE_WORD[phase] ?? phase}
-            </span>
+            {phase === "ended" ? (
+              <span className="kl-num flex items-center gap-1.5 text-[10px] tracking-[0.1em] text-[var(--kl-amber)]/85 lowercase">
+                <span aria-hidden className="size-1.5 rounded-full bg-[var(--kl-amber)]" />
+                finished
+              </span>
+            ) : (
+              <span className="kl-num text-[10px] tracking-[0.1em] text-white/30 lowercase">
+                {PHASE_WORD[phase] ?? phase}
+              </span>
+            )}
             <span aria-hidden className="size-[18px] shrink-0">
               <AgentOrb mark={meta?.mark ?? mark} size={18} />
             </span>
@@ -96,7 +103,7 @@ export function RunView({
 
       <div className="grid min-h-0 gap-3 lg:grid-rows-[minmax(0,1fr)_auto]">
         <Panel
-          label="ledger"
+          label="payments"
           className="min-h-[240px] lg:min-h-0"
           aside={
             <span className="kl-num text-[10px] tracking-[0.1em] text-white/25">
