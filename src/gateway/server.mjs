@@ -498,7 +498,16 @@ async function main() {
   const server = serve({ fetch: app.fetch, port: PORT });
   attachLiveSocket(server, {
     store,
-    resolveUpstream: (lease) => lease.upstream ?? null,
+    resolveUpstream: (lease) => lease.upstream ? { ...lease.upstream, kind: lease.kind, leaseId: lease.id } : null,
+    /** One frame, as jpeg, for a desktop being watched. */
+    grabFrame: async (leaseId) => {
+      const lease = store.get(leaseId);
+      if (!lease || lease.state !== "open") return null;
+      const handle = await handleFor(lease, live);
+      if (!handle) return null;
+      const buf = Buffer.from(await handle.screenshot({ format: "jpeg", quality: 60 }));
+      return buf.toString("base64");
+    },
   });
 }
 

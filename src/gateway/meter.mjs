@@ -19,6 +19,8 @@
  */
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
+import { appendFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 
@@ -72,9 +74,19 @@ export class Meter extends EventEmitter {
    * @param opts.lowWaterSeconds  ask for more once the balance buys less than this
    * @param opts.anchorEverySec   how often the chain head goes to the public topic
    */
-  constructor({ store, lowWaterSeconds = 60, anchorEverySec = 60, onAnchor } = {}) {
+  constructor({ store, lowWaterSeconds = 60, anchorEverySec = 60, onAnchor, ledgerDir = "var/ticks" } = {}) {
     super();
     this.store = store;
+    /**
+     * Ticks are appended to a file per lease as they happen.
+     *
+     * They used to live only in memory, and a restart during a run lost the evidence for a
+     * lease that had genuinely been metered: the machine was billed for 724 seconds and the
+     * proof endpoint reported none. An append-only file is the smallest thing that makes the
+     * chain survive the process that wrote it, and it is also the honest shape for a ledger.
+     */
+    this.ledgerDir = ledgerDir;
+    mkdirSync(ledgerDir, { recursive: true });
     this.lowWater = lowWaterSeconds;
     this.anchorEvery = anchorEverySec;
     this.onAnchor = onAnchor;
@@ -145,7 +157,9 @@ export class Meter extends EventEmitter {
       run.head = tickHash({ prev: run.prev, seq: run.seq, leaseId, tinybar: taken, at });
       run.prev = run.head;
       run.sinceAnchor += 1;
-      run.ticks.push({ seq: run.seq, tinybar: taken, at, hash: run.head });
+      const tick = { seq: run.seq, tinybar: taken, at, hash: run.head };
+      run.ticks.push(tick);
+      this.#append(leaseId, tick);
 
       this.emit("tick", {
         leaseId, seq: run.seq, at,
@@ -170,13 +184,37 @@ export class Meter extends EventEmitter {
     }
   }
 
+  #append(leaseId, tick) {
+    try { appendFileSync(`${this.ledgerDir}/${leaseId}.jsonl`, JSON.stringify(tick) + "\n"); }
+    catch { /* a full disk must not stop the meter; the chain head is still in memory */ }
+  }
+
+  /** Every tick ever written for a lease, whichever process wrote it. */
+  ledger(leaseId) {
+    const f = `${this.ledgerDir}/${leaseId}.jsonl`;
+    if (!existsSync(f)) return [];
+    return readFileSync(f, "utf8").split("\n").filter(Boolean)
+      .map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  }
+
   /**
    * The evidence for a closed lease. The ticks are the working; the root is what gets signed
    * and what the public topic holds, so a buyer can recompute one from the other.
    */
   proof(leaseId) {
     const run = this.runs.get(leaseId);
-    if (!run) return null;
+    if (!run) {
+      // the lease closed, or this process did not meter it; the file still has the chain
+      const ticks = this.ledger(leaseId);
+      if (!ticks.length) return null;
+      return {
+        seconds: ticks.length,
+        rateTinybar: ticks[0]?.tinybar ?? 0,
+        totalTinybar: ticks.reduce((n, t) => n + t.tinybar, 0),
+        chainHead: ticks[ticks.length - 1].hash,
+        ticks,
+      };
+    }
     return {
       seconds: run.seq,
       rateTinybar: run.rate,

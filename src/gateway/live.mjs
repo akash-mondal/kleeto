@@ -109,7 +109,7 @@ export function viewerPage({ lease, wsPath, origin }) {
  * a headless Chrome without linking the supplier's own viewer. For a desktop it relays the RFB
  * socket. Either way the browser only ever holds a socket to us.
  */
-export function attachLiveSocket(httpServer, { store, resolveUpstream }) {
+export function attachLiveSocket(httpServer, { store, resolveUpstream, grabFrame }) {
   const wss = new WebSocketServer({ noServer: true });
 
   httpServer.on("upgrade", (req, socket, head) => {
@@ -126,7 +126,12 @@ export function attachLiveSocket(httpServer, { store, resolveUpstream }) {
     const say = (o) => { try { client.send(JSON.stringify(o)); } catch {} };
     if (!upstream) { say({ state: "unavailable", note: "this machine has no live view" }); return; }
 
+    // A browser exposes CDP, which can screencast. A desktop exposes an RFB socket, whose
+    // bytes are a protocol rather than pixels: piping them to an <img> shows nothing. So a
+    // desktop is watched by pulling frames instead, which is a lower rate than VNC and a
+    // great deal simpler than transcoding RFB in the gateway.
     if (upstream.cdp) return relayCdp(client, upstream.cdp, say);
+    if (upstream.kind === "desktop" && grabFrame) return pumpFrames(client, upstream.leaseId, say);
     if (upstream.stream) return relayRaw(client, upstream.stream, say);
     say({ state: "unavailable", note: "this machine has no live view" });
   }
@@ -197,6 +202,28 @@ export function attachLiveSocket(httpServer, { store, resolveUpstream }) {
     up.on("close", () => client.close());
     up.on("error", (e) => { say({ state: "unavailable", note: "lost the machine" }); client.close(); });
     client.on("close", () => { try { up.close(); } catch {} });
+  }
+
+  /**
+   * Pull a frame at a time and push it down. Two frames a second: enough to watch someone
+   * work, cheap enough that the watching does not compete with the working.
+   */
+  async function pumpFrames(client, leaseId, say) {
+    say({ state: "live" });
+    let stop = false;
+    client.on("close", () => { stop = true; });
+    let misses = 0;
+    while (!stop) {
+      try {
+        const jpeg = await grabFrame(leaseId);
+        if (jpeg) { client.send(jpeg); misses = 0; }
+        else if (++misses > 10) { say({ state: "unavailable", note: "lost the machine" }); break; }
+      } catch {
+        if (++misses > 10) { say({ state: "unavailable", note: "lost the machine" }); break; }
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    try { client.close(); } catch {}
   }
 
   /** A plain byte relay, for suppliers that already speak a stream we can pass through. */
