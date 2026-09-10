@@ -56,6 +56,7 @@ export function Composer({
   const [agentId, setAgentId] = useState("gpt-6-astra");
   const [effort, setEffort] = useState("medium");
   const [asset, setAsset] = useState<"usdc" | "hbar">("usdc");
+  const [error, setError] = useState<string | null>(null);
   const { free, queued } = useBoard();
   const locked = Boolean(placed);
 
@@ -79,17 +80,29 @@ export function Composer({
     if (a) setEffort(a.defaultEffort);
   }
 
+  /**
+   * A sentence is the floor, and the bar says so.
+   *
+   * The gateway refuses anything under ten characters, because an agent given "hi" has nothing
+   * to discover a machine for. The button used to look live at two characters and then quietly
+   * do nothing, which reads as a broken page rather than as a rule.
+   */
+  const ready = value.trim().length >= 10;
+  const tooShort = value.trim().length > 0 && !ready;
+
   /** Submitting is free; the agent pays when it rents. What this buys is a place in the line. */
   async function send() {
     const prompt = value.trim();
-    if (prompt.length < 10 || sending) return;
+    if (!ready || sending) return;
     setSending(true);
+    setError(null);
     try {
       const r = await fetch(`${GATEWAY}/v1/jobs`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, agent: agentId, effort, asset }),
       });
       const j = await r.json();
+      if (!r.ok) setError(j.error ?? "the gateway would not take that");
       if (r.ok) {
         setPlaced({ id: j.id, position: j.position });
         setValue("");
@@ -99,6 +112,8 @@ export function Composer({
           mark: agent?.mark ?? AGENT_META[agentId]?.mark ?? "openai",
         });
       }
+    } catch {
+      setError("could not reach the gateway. It may be restarting; try again in a moment.");
     } finally { setSending(false); }
   }
 
@@ -137,6 +152,11 @@ export function Composer({
         <textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}
+          /* Enter sends, the way it does in every prompt bar this one is shaped like.
+             Shift+Enter is how you get a second line. */
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+          }}
           rows={3}
           placeholder="Describe a job. It will pick a machine, pay for it, and get to work."
           className="w-full resize-none bg-transparent px-5 pt-4 pb-2 text-[15px] leading-[1.55] text-white placeholder:text-white/30 focus:outline-none"
@@ -191,7 +211,7 @@ export function Composer({
           <span className="flex-1" />
           <button
             type="button"
-            disabled={!value.trim() || sending}
+            disabled={!ready || sending}
             onClick={send}
             className="flex size-8 cursor-pointer items-center justify-center rounded-[8px] bg-[var(--kl-amber)] text-[#171310] transition-opacity disabled:cursor-not-allowed disabled:opacity-25"
             aria-label="Send"
@@ -202,6 +222,12 @@ export function Composer({
           </button>
         </div>
       </div>
+
+      {tooShort || error ? (
+        <p className="mt-3 text-[12px] leading-[1.5] text-white/40">
+          {error ?? "A sentence or two. The agent has to work out which machine this needs, and two words are not enough to go on."}
+        </p>
+      ) : null}
 
       {placed ? (
         <p className="kl-num mt-3 text-[12px] text-[var(--kl-amber)]">
