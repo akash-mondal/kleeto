@@ -97,3 +97,10 @@ export function useRun(jobId: string | null) {
 
   return { run, answer, sending };
 }
+
+/** File sizes in the unit a person would say them in. 249 bytes is not "0 kB". */
+export function fileSize(bytes = 0) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10240 ? 1 : 0)} kB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Globe, Static, type Stage } from "./connecting";
-import type { Run, RunEvent, RunMessage } from "./use-run";
+import { fileSize, type Run, type RunEvent, type RunMessage } from "./use-run";
 
 /**
  * The large panel, which is two different things in sequence.
@@ -105,8 +105,7 @@ export function ChatPanel({
             {run.phase === "scanning" && !pending ? <Working text="reading what Kleeto has" /> : null}
           </ol>
         </div>
-        <HandOff events={run.events} />
-        <Composer run={run} draft={draft} setDraft={setDraft} send={send} sending={sending} />
+          <Composer run={run} draft={draft} setDraft={setDraft} send={send} sending={sending} />
       </div>
     </div>
   );
@@ -161,8 +160,7 @@ function Tuning({ run, stage }: { run: Run; stage: Stage }) {
         <Globe stage={stage} />
         {stage === "static" ? <Static label={first ? "finding a machine" : "changing machines"} /> : null}
       </div>
-      <HandOff events={run.events} />
-      <CardStream messages={run.messages} ended={run.phase === "ended"} />
+      <CardStream run={run} />
     </div>
   );
 }
@@ -188,8 +186,7 @@ function Machine({ run }: { run: Run }) {
           sandbox="allow-scripts allow-same-origin"
         />
       </div>
-      <HandOff events={run.events} />
-      <CardStream messages={run.messages} ended={run.phase === "ended"} />
+      <CardStream run={run} />
     </div>
   );
 }
@@ -201,15 +198,30 @@ function Machine({ run }: { run: Run }) {
  * newest thing sits in front and the one before it slides back behind, so you can see there was
  * a before without having to read it again.
  */
-function CardStream({ messages, ended }: { messages: RunMessage[]; ended: boolean }) {
+type Card = { at: number; text?: string; file?: RunEvent };
+
+function CardStream({ run }: { run: Run }) {
+  const { messages } = run;
+  const ended = run.phase === "ended";
   /* Only what the agent said after work started. Its opening paragraph about what Kleeto has
      was an introduction, and repeating it on a card over a running desktop would be reading out
      the beginning of a story that has already moved on. */
-  const approvedAt =
-    [...messages].reverse().find((m) => m.role === "user" && m.kind === "plan")?.at ?? 0;
-  const said = messages
-    .filter((m) => m.role === "agent" && m.kind === "note" && m.at >= approvedAt)
-    .slice(-4);
+  /* The *first* approval, not the most recent one. An agent that revises its plan mid-run — to
+     escalate to a stealth browser, say — gets a second approval, and taking the latest one as
+     the cutoff would erase everything it had already said and everything it had already handed
+     over. Work started when work started. */
+  const approvedAt = messages.find((m) => m.role === "user" && m.kind === "plan")?.at ?? 0;
+  /* A file the agent handed over is news in the same sense a sentence is, so it arrives in the
+     same place rather than in a bar of its own. It is the one card you can click. */
+  const cards: Card[] = [
+    ...messages
+      .filter((m) => m.role === "agent" && m.kind === "note" && m.at >= approvedAt)
+      .map((m) => ({ at: m.at, text: m.text })),
+    ...run.events
+      .filter((e) => e.kind === "file" && e.url && e.at >= approvedAt)
+      .map((e) => ({ at: e.at, file: e })),
+  ].sort((a, b) => a.at - b.at);
+  const said = cards.slice(-4);
   if (said.length === 0) {
     return (
       <div className="flex h-[104px] shrink-0 items-center border-t border-white/[0.07] px-5">
@@ -220,67 +232,55 @@ function CardStream({ messages, ended }: { messages: RunMessage[]; ended: boolea
 
   return (
     <div className="relative h-[112px] shrink-0 border-t border-white/[0.07] px-4 pt-3 pb-4">
-      {said.map((m, i) => {
+      {said.map((c, i) => {
         const back = said.length - 1 - i;      // 0 is the newest, in front
-        return (
-          <article
-            key={`${m.at}-${i}`}
-            className="absolute inset-x-4 bottom-4 rounded-[12px] border border-white/10 bg-[oklch(0.19_0.01_85/0.96)] px-4 py-3 transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-            style={{
-              transform: `translateY(${-back * 9}px) scale(${1 - back * 0.035})`,
-              opacity: back === 0 ? 1 : Math.max(0, 0.42 - (back - 1) * 0.14),
-              zIndex: 10 - back,
-            }}
-          >
-            <span className="kl-num block text-[9.5px] tracking-[0.16em] text-white/30 uppercase">
-              {back === 0 && ended ? "finished" : "agent"}
-            </span>
-            <p className="mt-1 line-clamp-2 text-[13px] leading-[1.5] text-white/80">{m.text}</p>
-          </article>
-        );
-      })}
-    </div>
-  );
-}
+        const style = {
+          transform: `translateY(${-back * 9}px) scale(${1 - back * 0.035})`,
+          opacity: back === 0 ? 1 : Math.max(0, 0.42 - (back - 1) * 0.14),
+          zIndex: 10 - back,
+        };
+        const shell =
+          "absolute inset-x-4 bottom-4 rounded-[12px] border px-4 py-3 transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
 
-/**
- * What the run produced, and how to keep it.
- *
- * The point of the whole thing, so it sits under whichever face is showing rather than behind a
- * tab. The hash is next to the name because the same file's hash is in the receipt: a person who
- * cares can check that what they downloaded is what was hashed on the machine.
- */
-function HandOff({ events }: { events: RunEvent[] }) {
-  const made = events.filter((e) => e.kind === "file" && e.url);
-  if (made.length === 0) return null;
-  return (
-    <div className="shrink-0 border-t border-white/[0.07] bg-[oklch(0.155_0.008_85/0.9)] px-4 py-3">
-      <span className="kl-num block text-[9.5px] tracking-[0.16em] text-white/30 uppercase">
-        yours to keep
-      </span>
-      <ul className="mt-2 flex flex-wrap gap-2">
-        {made.map((f, i) => (
-          <li key={`${f.at}-${i}`}>
+        if (c.file) {
+          const f = c.file;
+          return (
             <a
-              href={f.url}
+              key={`${c.at}-${i}`}
+              href={back === 0 ? f.url : undefined}
               download={f.name}
-              className="kl-rise flex items-center gap-2.5 rounded-[10px] border border-[var(--kl-amber)]/25 bg-[var(--kl-amber)]/[0.07] px-3 py-2 transition-colors hover:border-[var(--kl-amber)]/50 hover:bg-[var(--kl-amber)]/[0.12]"
+              style={style}
+              className={`${shell} flex items-center gap-3 border-[var(--kl-amber)]/30 bg-[oklch(0.19_0.01_85/0.97)] ${
+                back === 0 ? "cursor-pointer hover:border-[var(--kl-amber)]/60" : "pointer-events-none"
+              }`}
             >
-              <svg viewBox="0 0 16 16" aria-hidden className="size-3.5 shrink-0 text-[var(--kl-amber)]"
+              <svg viewBox="0 0 16 16" aria-hidden className="size-4 shrink-0 text-[var(--kl-amber)]"
                    fill="none" stroke="currentColor" strokeWidth="1.6">
                 <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13h10" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <span className="min-w-0">
-                <span className="block truncate text-[12.5px] text-white/85">{f.name}</span>
-                <span className="kl-num block text-[10px] text-white/30">
-                  {((f.bytes ?? 0) / 1024).toFixed(0)} kB
-                  {f.sha256 ? <span className="ml-1.5">{f.sha256.slice(0, 10)}…</span> : null}
+              <span className="min-w-0 flex-1">
+                <span className="kl-num block text-[9.5px] tracking-[0.16em] text-white/30 uppercase">
+                  yours to keep
                 </span>
+                <span className="mt-0.5 block truncate text-[13px] text-white/85">{f.name}</span>
+              </span>
+              <span className="kl-num shrink-0 text-[10.5px] text-white/35 tabular-nums">
+                {fileSize(f.bytes)}
               </span>
             </a>
-          </li>
-        ))}
-      </ul>
+          );
+        }
+
+        return (
+          <article key={`${c.at}-${i}`} style={style}
+                   className={`${shell} border-white/10 bg-[oklch(0.19_0.01_85/0.96)]`}>
+            <span className="kl-num block text-[9.5px] tracking-[0.16em] text-white/30 uppercase">
+              {back === 0 && ended ? "finished" : "agent"}
+            </span>
+            <p className="mt-1 line-clamp-2 text-[13px] leading-[1.5] text-white/80">{c.text}</p>
+          </article>
+        );
+      })}
     </div>
   );
 }

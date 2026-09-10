@@ -87,7 +87,7 @@ export function RunView({
 
       <div className="grid min-h-0 gap-3 lg:grid-rows-[minmax(0,1fr)_auto]">
         <Panel
-          label="payments"
+          label="ledger"
           className="min-h-[240px] lg:min-h-0"
           aside={
             <span className="kl-num text-[10px] tracking-[0.1em] text-white/25">
