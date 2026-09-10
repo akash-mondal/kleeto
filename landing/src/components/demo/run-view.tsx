@@ -106,7 +106,7 @@ export function RunView({
             </span>
           }
         >
-          <MeterDial tick={tick} settled={settled} usdPerHbar={usdPerHbar} />
+          <MeterDial tick={tick} settled={settled} usdPerHbar={usdPerHbar} asset={run?.asset === "hbar" ? "hbar" : "usdc"} />
         </Panel>
       </div>
     </div>

@@ -72,6 +72,13 @@ Once approved:
 
 5. kleeto_topup, then kleeto_rent what you said you would rent. If you have changed your mind
    about the machine, say so with kleeto_say before you take a different one.
+
+   Buy credit three minutes at a time, not for the whole job: tinybar = 180 x the lane's
+   tinybarPerSecond from kleeto_discover. Check kleeto_meter as you work and top up again
+   whenever secondsRemaining falls under about sixty. Credit is not the bill — you are charged
+   for the seconds you hold the machine either way — but topping up in small steps means the
+   person watching sees each payment land instead of one number at the start, and an agent that
+   loses its way costs them three minutes rather than ten.
 6. kleeto_say the live view URL the moment you have it. Someone is watching an empty panel
    until you do.
 7. Do the work, driving applications through their own interfaces. Screenshot after anything
@@ -80,8 +87,24 @@ Once approved:
 8. Finish with kleeto_receipt, then kleeto_return, then say what you produced, what fought you,
    and the settlement transaction.
 
-If something turns out to be impossible, say so plainly rather than pretending it worked. If
-you find the machine you took was the wrong choice, say that too — it is cheaper to be told.
+When something blocks you, escalate before you give up. You have more than one machine and you
+are allowed to use them one after another in a single run:
+
+  - A site shows a CAPTCHA, an "are you human" check, a login wall or a 403. That is what the
+    stealth browser lane is for: hardened Chromium on a residential proxy with CAPTCHAs solved
+    for you. Rent it, get the pages or the data you came for, return it, and carry on with the
+    machine you already had. It costs more per second, so use it for the fetch and not for the
+    afternoon.
+  - An application on the desktop will not do what you need, but a shell would. Take a machine.
+  - You cannot read a page in Chrome on the desktop. Take a browser instead.
+
+kleeto_say what stopped you and what you are about to try, so nobody is watching an unexplained
+pause, then do it. Ending the run with nothing because the first approach failed is the last
+resort, not the second step — and if you do end that way, say exactly what you tried.
+
+If something turns out to be genuinely impossible, say so plainly rather than pretending it
+worked. If you find the machine you took was the wrong choice, say that too — it is cheaper to
+be told.
 
 What they asked for:
 

@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Connecting, Static } from "./connecting";
+import { Globe, Static, type Stage } from "./connecting";
 import type { Run, RunMessage } from "./use-run";
 
 /**
- * The conversation, and then the machine.
+ * The large panel, which is two different things in sequence.
  *
- * This panel is the whole of the run's front half. The agent reads what Kleeto has, says what
- * it could do, asks what it needs, and proposes a plan; none of that costs anything. The moment
- * a plan is approved and a machine comes up, the same panel becomes the window onto that
- * machine, with the talk continuing underneath — because once there is something to watch, the
- * screen is the more important thing on the page, and the transcript is how you know why.
+ * Before a plan is approved it is a conversation, over a turning globe. Approving one hands the
+ * panel to the machine: the talk fades, the globe is fallen into, the picture breaks up, and
+ * what comes out the other side is the screen of the computer that was rented — filling the box,
+ * black above and below, with no second window inside the first.
+ *
+ * The transcript does not survive that, and should not: once there is a machine to watch, a
+ * scrolling history is the wrong shape for what the agent is saying. It says one thing at a
+ * time now, on a card, and the card it said before slides back behind it.
  */
 export function ChatPanel({
   run,
@@ -23,35 +26,34 @@ export function ChatPanel({
   sending: boolean;
 }) {
   const [draft, setDraft] = useState("");
-  const [diving, setDiving] = useState(false);
+  const [step, setStep] = useState<"focus" | "dive" | "static">("focus");
   const scroller = useRef<HTMLDivElement>(null);
   const pending = run.pending;
-  const live = run.liveUrl && (run.phase === "working" || run.phase === "ended");
+  const live = Boolean(run.liveUrl) && (run.phase === "working" || run.phase === "ended");
+  const connecting = run.phase === "working" && !live;
 
   /**
-   * The dive lasts as long as the dive; the static lasts as long as the wait.
+   * Approval starts a sequence, not a spinner.
    *
-   * Approving a plan is the moment a machine has to be found and started, which takes the
-   * better part of a minute for a desktop. Rather than a spinner over an empty panel, the world
-   * behind the conversation is fallen into and the picture breaks up — and it stays broken up
-   * until the live view genuinely exists, so the noise is the wait itself rather than a fixed
-   * animation that finishes before the machine does.
+   * Nine hundred milliseconds to let the conversation go and leave the globe alone in the panel,
+   * a second and a half falling into it, and then static — which lasts exactly as long as the
+   * machine takes, because that is the thing being waited for.
    */
   useEffect(() => {
-    if (run.phase !== "working" || live) { setDiving(false); return undefined; }
-    setDiving(true);
-    const t = setTimeout(() => setDiving(false), 1500);
-    return () => clearTimeout(t);
-  }, [run.phase, live]);
+    if (!connecting) return undefined;
+    setStep("focus");
+    const a = setTimeout(() => setStep("dive"), 900);
+    const b = setTimeout(() => setStep("static"), 2400);
+    return () => { clearTimeout(a); clearTimeout(b); };
+  }, [connecting]);
 
-  const stage = run.phase !== "working" || live ? "idle" : diving ? "dive" : "static";
+  const stage: Stage = live ? "live" : connecting ? step : "idle";
 
   useEffect(() => {
     const el = scroller.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [run.messages.length, pending?.qid]);
 
-  /** One way in for every affordance: a chip, the send button, Enter, or "start work". */
   function send(text: string, approve = false) {
     if (!pending) return;
     if (!approve && !text.trim()) return;
@@ -59,42 +61,104 @@ export function ChatPanel({
     setDraft("");
   }
 
+  if (live) return <Machine run={run} />;
+
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      {live ? null : <Connecting stage={stage} />}
-      {live || stage === "static" ? (
-        <div className="relative z-10 shrink-0 border-b border-white/[0.07] p-3">
-          {/* capped, so the screen never squeezes the transcript down to a slit: what the
-              machine is doing is only legible next to why it is doing it */}
-          <div className="relative mx-auto aspect-video max-h-[38vh] w-full overflow-hidden rounded-[12px] border border-white/10 bg-black">
-            {live ? (
-              <iframe
-                src={run.liveUrl!}
-                title="The machine this run rented"
-                className="absolute inset-0 h-full w-full"
-                sandbox="allow-scripts allow-same-origin"
-              />
-            ) : (
-              /* the same box the machine will appear in, tuning in until it does */
-              <Static />
-            )}
-          </div>
+      <Globe stage={stage} />
+      {stage === "static" ? <Static /> : null}
+
+      {/* the conversation, which leaves the moment the machine is being fetched */}
+      <div
+        className={`relative z-10 flex min-h-0 flex-1 flex-col transition-opacity duration-[700ms] ${
+          stage === "idle" ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      >
+        <div ref={scroller} className="kl-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <ol className="flex flex-col gap-5">
+            {run.messages.map((m, i) => (
+              <Message key={`${m.at}-${i}`} m={m} />
+            ))}
+            {run.phase === "scanning" && !pending ? <Working text="reading what Kleeto has" /> : null}
+          </ol>
         </div>
-      ) : null}
-
-      <div ref={scroller} className="relative z-10 min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        <ol className="flex flex-col gap-5">
-          {run.messages.map((m, i) => (
-            <Message key={`${m.at}-${i}`} m={m} />
-          ))}
-          {run.phase === "scanning" && !pending ? <Working text="reading what Kleeto has" /> : null}
-          {run.phase === "working" && !live ? <Working text="bringing a machine up" /> : null}
-        </ol>
-      </div>
-
-      <div className="relative z-10">
         <Composer run={run} draft={draft} setDraft={setDraft} send={send} sending={sending} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * The machine, once there is one.
+ *
+ * Black to the edges with the screen centred in it, because a desktop is 16:9 and this panel is
+ * not: the bars are what honesty about the aspect ratio looks like. The viewer is asked for its
+ * bare mode, so what is embedded is the picture rather than a second page with its own header,
+ * its own clock and its own scrollbar.
+ */
+function Machine({ run }: { run: Run }) {
+  const src = run.liveUrl ? `${run.liveUrl}${run.liveUrl.includes("?") ? "&" : "?"}bare=1` : "";
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-black">
+      <div className="relative min-h-0 flex-1">
+        <iframe
+          src={src}
+          title="The machine this run rented"
+          scrolling="no"
+          className="absolute inset-0 h-full w-full"
+          sandbox="allow-scripts allow-same-origin"
+        />
+      </div>
+      <CardStream messages={run.messages} ended={run.phase === "ended"} />
+    </div>
+  );
+}
+
+/**
+ * What the agent is saying while it works, one card at a time.
+ *
+ * A transcript is for reading afterwards; this is for glancing at while watching a screen. The
+ * newest thing sits in front and the one before it slides back behind, so you can see there was
+ * a before without having to read it again.
+ */
+function CardStream({ messages, ended }: { messages: RunMessage[]; ended: boolean }) {
+  /* Only what the agent said after work started. Its opening paragraph about what Kleeto has
+     was an introduction, and repeating it on a card over a running desktop would be reading out
+     the beginning of a story that has already moved on. */
+  const approvedAt =
+    [...messages].reverse().find((m) => m.role === "user" && m.kind === "plan")?.at ?? 0;
+  const said = messages
+    .filter((m) => m.role === "agent" && m.kind === "note" && m.at >= approvedAt)
+    .slice(-4);
+  if (said.length === 0) {
+    return (
+      <div className="flex h-[104px] shrink-0 items-center border-t border-white/[0.07] px-5">
+        <p className="kl-num text-[11px] tracking-[0.14em] text-white/25 uppercase">working</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-[112px] shrink-0 border-t border-white/[0.07] px-4 pt-3 pb-4">
+      {said.map((m, i) => {
+        const back = said.length - 1 - i;      // 0 is the newest, in front
+        return (
+          <article
+            key={`${m.at}-${i}`}
+            className="absolute inset-x-4 bottom-4 rounded-[12px] border border-white/10 bg-[oklch(0.19_0.01_85/0.96)] px-4 py-3 transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+            style={{
+              transform: `translateY(${-back * 9}px) scale(${1 - back * 0.035})`,
+              opacity: back === 0 ? 1 : Math.max(0, 0.42 - (back - 1) * 0.14),
+              zIndex: 10 - back,
+            }}
+          >
+            <span className="kl-num block text-[9.5px] tracking-[0.16em] text-white/30 uppercase">
+              {back === 0 && ended ? "finished" : "agent"}
+            </span>
+            <p className="mt-1 line-clamp-2 text-[13px] leading-[1.5] text-white/80">{m.text}</p>
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -147,10 +211,9 @@ function Working({ text }: { text: string }) {
 /**
  * What the person can do right now, which is usually nothing.
  *
- * The input is only live while the agent is actually waiting on an answer. Once work starts the
- * run is closed to instructions — a machine is running and being charged for, and a message
- * arriving mid-task would either be ignored or would change a job that is already half done.
- * The field says which of those it is rather than sitting there greyed out with no explanation.
+ * The field is live only while the agent is actually waiting on an answer. The run is closed to
+ * instructions once work starts — a machine is running and being charged for — and the field
+ * says which of those it is rather than sitting there greyed out with no explanation.
  */
 function Composer({
   run,
@@ -176,9 +239,7 @@ function Composer({
       : run.phase === "ended"
         ? "This run is finished."
         : !pending
-          ? run.phase === "working"
-            ? "The agent is working and cannot take new instructions. It will speak up if it needs you."
-            : "The agent is thinking. It will ask when it needs something."
+          ? "The agent is thinking. It will ask when it needs something."
           : null;
 
   if (closed) {
@@ -207,7 +268,8 @@ function Composer({
         </div>
       ) : null}
 
-      <div className="flex items-end gap-2">
+      {/* stretch, so the button is the height of the thing it sits beside */}
+      <div className="flex items-stretch gap-2">
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -216,15 +278,15 @@ function Composer({
           }}
           rows={plan ? 1 : 2}
           placeholder={plan ? "Or tell it what to change" : "Answer, or say anything else it should know"}
-          className="min-h-[38px] flex-1 resize-none rounded-[10px] border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] leading-[1.5] text-white placeholder:text-white/25 focus:border-white/25 focus:outline-none"
+          className="kl-scroll min-h-[42px] flex-1 resize-none rounded-[10px] border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[13px] leading-[1.5] text-white placeholder:text-white/25 focus:border-white/25 focus:outline-none"
         />
         {plan ? (
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-stretch gap-2">
             <button
               type="button"
               disabled={sending || !draft.trim()}
               onClick={() => send(draft)}
-              className="cursor-pointer rounded-[9px] border border-white/12 px-3 py-2 text-[12.5px] text-white/60 transition-colors hover:border-white/25 hover:text-white/85 disabled:cursor-not-allowed disabled:opacity-30"
+              className="cursor-pointer rounded-[10px] border border-white/12 px-3.5 text-[12.5px] text-white/60 transition-colors hover:border-white/25 hover:text-white/85 disabled:cursor-not-allowed disabled:opacity-30"
             >
               Change it
             </button>
@@ -232,7 +294,7 @@ function Composer({
               type="button"
               disabled={sending}
               onClick={() => send(draft, true)}
-              className="cursor-pointer rounded-[9px] bg-[var(--kl-amber)] px-3.5 py-2 text-[12.5px] font-medium text-[#171310] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="cursor-pointer rounded-[10px] bg-[var(--kl-amber)] px-4 text-[12.5px] font-medium text-[#171310] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Start work
             </button>
@@ -242,7 +304,7 @@ function Composer({
             type="button"
             disabled={sending || !draft.trim()}
             onClick={() => send(draft)}
-            className="flex size-[38px] shrink-0 cursor-pointer items-center justify-center rounded-[9px] bg-[var(--kl-amber)] text-[#171310] transition-opacity disabled:cursor-not-allowed disabled:opacity-25"
+            className="flex w-[42px] shrink-0 cursor-pointer items-center justify-center rounded-[10px] bg-[var(--kl-amber)] text-[#171310] transition-opacity disabled:cursor-not-allowed disabled:opacity-25"
             aria-label="Send"
           >
             <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">

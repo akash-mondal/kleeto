@@ -27,15 +27,15 @@ export function LedgerPanel({ events, phase }: { events: RunEvent[]; phase: stri
   return (
     <div className="flex h-full min-h-0 flex-col">
       {events.length === 0 ? (
-        <div className="flex h-full flex-col justify-end p-5">
-          <p className="max-w-[34ch] text-[12.5px] leading-[1.6] text-white/30">
+        <div className="flex h-full items-center justify-center p-6">
+          <p className="max-w-[34ch] text-center text-[12.5px] leading-[1.6] text-balance text-white/30">
             {phase === "working"
               ? "The agent is spending now. The first settlement will appear here within a second or two."
               : "Nothing has been paid yet. The agent answers Kleeto’s 402 from its own wallet once you approve its plan, and every payment it makes lands here with a link to the transaction."}
           </p>
         </div>
       ) : (
-        <ol className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <ol className="kl-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {events
             .slice()
             .reverse()
@@ -49,7 +49,7 @@ export function LedgerPanel({ events, phase }: { events: RunEvent[]; phase: stri
                   <span className="block text-[12.5px] leading-[1.5] text-white/70">
                     <span className="text-white/40">{VERB[e.kind]} </span>
                     {e.kind === "topup"
-                      ? `${hbar(e.tinybar)} HBAR of credit`
+                      ? `${e.asset ?? "HBAR"} for ${hbar(e.tinybar)} HBAR of credit`
                       : e.kind === "rent"
                         ? `${e.lane}${e.image && e.image !== "base" ? ` · ${e.image}` : ""}`
                         : `${e.lane} after ${e.seconds}s`}

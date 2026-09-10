@@ -15,7 +15,15 @@
 import { WebSocketServer, WebSocket } from "ws";
 
 /** Kleeto's own viewer. No vendor script, no vendor origin, no vendor name. */
-export function viewerPage({ lease, wsPath, origin }) {
+/**
+ * @param bare  Strip the page down to the screen itself.
+ *
+ * The chrome — mark, lane pill, elapsed counter, the line about renting by the second — is for
+ * a person who opened this link on its own. Embedded in the workspace it is a second window
+ * inside the first, with its own scrollbar and its own idea of the time, so the panel asks for
+ * the bare picture and supplies that context itself.
+ */
+export function viewerPage({ lease, wsPath, origin, bare = false }) {
   const title = `${lease.lane} · live`;
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/>
@@ -42,6 +50,15 @@ export function viewerPage({ lease, wsPath, origin }) {
   #status { position:absolute; inset:0; display:grid; place-items:center; color:var(--muted);
             font-family:ui-monospace,monospace; font-size:12px; text-align:center; padding:20px; }
   footer { padding:10px 18px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+${bare ? `
+  html, body { height:100%; overflow:hidden; background:#000; }
+  header, footer { display:none !important; }
+  main { padding:0; height:100%; background:#000; }
+  /* the screen keeps its own proportions and the bars fall where they fall */
+  #stage { max-width:none; width:100%; height:100%; aspect-ratio:auto; border:0; border-radius:0;
+           background:#000; }
+  #screen { object-fit:contain; background:#000; }
+` : ""}
 </style></head>
 <body>
 <header>

@@ -30,11 +30,14 @@ export function MeterDial({
   tick,
   settled,
   usdPerHbar,
+  asset,
 }: {
   tick: Tick | null;
   /** The final total for a lease that has already been returned and stopped ticking. */
   settled: { seconds: number; tinybar: number } | null;
   usdPerHbar: number | null;
+  /** Whichever of the two the person chose on the bar. The bill is quoted in that. */
+  asset: "usdc" | "hbar";
 }) {
   const done = !tick?.seconds && settled ? settled : null;
   const seconds = done ? done.seconds : (tick?.seconds ?? 0);
@@ -43,6 +46,10 @@ export function MeterDial({
   const paused = tick?.state === "paused";
   const hbarSpent = (done ? done.tinybar : (tick?.spentTinybar ?? 0)) / 1e8;
   const usd = usdPerHbar ? hbarSpent * usdPerHbar : null;
+  /* The meter counts in tinybar because that is what a lane costs a second, but quoting HBAR at
+     someone who chose to pay in USDC makes them do arithmetic to check their own bill. Both
+     numbers are here; the one they picked is the one in front. */
+  const inUsdc = asset === "usdc";
 
   return (
     <div className="flex h-full flex-col items-center justify-between px-5 pt-4 pb-4">
@@ -91,8 +98,17 @@ export function MeterDial({
         <div>
           <dt className="kl-num text-[9.5px] tracking-[0.14em] text-white/25 uppercase">cost so far</dt>
           <dd className="kl-num mt-1 text-[13px] text-white/80 tabular-nums">
-            {hbarSpent.toFixed(4)} <span className="text-white/35">HBAR</span>
-            {usd != null ? <span className="ml-1.5 text-white/30">${usd.toFixed(4)}</span> : null}
+            {inUsdc && usd != null ? (
+              <>
+                {usd.toFixed(4)} <span className="text-white/35">USDC</span>
+                <span className="ml-1.5 text-white/25">{hbarSpent.toFixed(4)} ℏ</span>
+              </>
+            ) : (
+              <>
+                {hbarSpent.toFixed(4)} <span className="text-white/35">HBAR</span>
+                {usd != null ? <span className="ml-1.5 text-white/25">${usd.toFixed(4)}</span> : null}
+              </>
+            )}
           </dd>
         </div>
         <div>

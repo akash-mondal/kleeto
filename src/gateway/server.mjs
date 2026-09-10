@@ -744,7 +744,7 @@ app.get("/live/:token", (c) => {
   if (!l) return c.text("This live view has expired.", 404);
   const wsProto = ORIGIN.startsWith("https") ? "wss" : "ws";
   const wsPath = `${wsProto}://${new URL(ORIGIN).host}/live/${token}/socket`;
-  return c.html(viewerPage({ lease: l, wsPath, origin: ORIGIN }));
+  return c.html(viewerPage({ lease: l, wsPath, origin: ORIGIN, bare: c.req.query("bare") === "1" }));
 });
 
 async function main() {

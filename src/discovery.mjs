@@ -97,6 +97,8 @@ export function discovery({ cat, network, assets = ["USDC", "HBAR"] }) {
         "kleeto_return — hand it back. Unused credit stays on the session.",
       ],
       metering: "You are charged for the seconds you hold a machine, not for the time you reserved. Returning early is refunded by simply not being charged.",
+      howMuchToBuy: "Three minutes at a time: tinybar = 180 x the lane's tinybarPerSecond. Top up again when kleeto_meter shows under a minute left. Small steps keep the watcher's ledger honest and cap what a wrong turn costs.",
+      escalating: "Blocked by a CAPTCHA or a login wall? Rent browser-max for that fetch, then return it and carry on with the machine you already had. Running two machines one after another in a single job is normal.",
       ifCreditRuns_out: "The lease pauses rather than dying. Top up and it resumes.",
       settlement: "Every top-up settles on Hedera and returns a transaction id anyone can look up on hashscan.",
     },
