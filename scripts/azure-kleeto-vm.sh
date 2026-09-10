@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# A machine of Kleeto's own: new resource group, Ubuntu 24.04, SSH only from the given IPs,
+# A machine of Kleeto's own: new resource group, Ubuntu 24.04. D2alds_v7 in eastus2 is the
+# one small size this subscription is still allowed to create; every B-series is restricted., SSH only from the given IPs,
 # Node 22 and codex pinned at first boot, and a dedicated `codex` user for the agent so its
 # tokens and full-disk sandbox never share a home with anything else.
 #
 #   scripts/azure-kleeto-vm.sh [size] [location] [ip1,ip2,...]
 set -euo pipefail
-SIZE="${1:-Standard_B2ls_v2}"; LOC="${2:-centralindia}"; IPS="${3:-$(curl -s4 ifconfig.me)/32}"
+SIZE="${1:-Standard_D2alds_v7}"; LOC="${2:-eastus2}"; IPS="${3:-$(curl -s4 ifconfig.me)/32}"
 RG=KLEETO-RG; VM=kleeto-vm; KEY="$HOME/.ssh/kleeto_azure_ed25519"
 [ -f "$KEY" ] || ssh-keygen -t ed25519 -N "" -C kleeto-azure -f "$KEY" >/dev/null
 CLOUD_INIT=$(mktemp)
