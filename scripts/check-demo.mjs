@@ -4,7 +4,7 @@ const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
 const errs = [];
 p.on("console", (m) => m.type() === "error" && errs.push(m.text().slice(0, 120)));
 p.on("pageerror", (e) => errs.push("PAGEERROR " + e.message.slice(0, 120)));
-await p.goto("http://127.0.0.1:3200/demo", { waitUntil: "networkidle", timeout: 60000 });
+await p.goto("https://kleeto.fun/demo", { waitUntil: "networkidle", timeout: 60000 });
 await p.waitForTimeout(9000);   // shaders build a document then start animating
 const info = await p.evaluate(() => {
   const frames = [...document.querySelectorAll("iframe")];

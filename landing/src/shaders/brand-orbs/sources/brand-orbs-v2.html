@@ -1790,10 +1790,14 @@
     const rs = rscale(S) * (o.mini ? 1.8 : 1);
     const p = proj(.12 * Math.sin(t * .38), .12 * Math.sin(t * .29), cx, cy, R);
     const pts = pathDots("openai", OPENAI_PATH, o.mini ? 14 : 34);
-    /* furls shut and opens again; the outer petals swirl further than the middle */
-    const cyc = ((t * .28) % 1 + 1) % 1;
-    const open = smooth(Math.sin(cyc * Math.PI));
-    const scl = .5 + .5 * open;
+    /* KLEETO DEVIATION from the registered source: the authored rosette furls shut and
+       blooms again on a cycle, which reads as the logo zooming in and out above a prompt
+       bar. Pinned fully open so it only rotates. The two lines it replaces were:
+           const cyc = ((t * .28) % 1 + 1) % 1;
+           const open = smooth(Math.sin(cyc * Math.PI));
+       Everything downstream of `open` is untouched. */
+    const open = 1;
+    const scl = 1;
     const dots = [];
     for (const [gx0, gy0] of pts) {
       const r0 = Math.hypot(gx0, gy0), th = Math.atan2(gy0, gx0);
