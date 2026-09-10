@@ -25,7 +25,7 @@ const IMAGES = {
     check: ["kicad", "freecad", "qgis"],
   },
   "kleeto-desktop-office": {
-    apt: ["thunderbird", "gnucash", "remmina", "remmina-plugin-rdp", "remmina-plugin-vnc", "wireshark"],
+    apt: ["thunderbird", "gnucash", "remmina", "remmina-plugin-rdp", "remmina-plugin-vnc", "wireshark", "tshark"],
     owns: "mail, books, remote access, network",
     // DBeaver is in no apt repository, so it comes from the vendor's own .deb
     post: ["curl -fsSL -o /tmp/dbeaver.deb https://dbeaver.io/files/dbeaver-ce_latest_amd64.deb " +
@@ -44,6 +44,8 @@ async function build(name, spec) {
   const lease = await a.provision({ id: "desktop-2", ...requireLane("desktop-2"), diskGb: 20 },
     { timeoutMs: 3_600_000, template: "workstation", metadata: { kleeto: "image-build" } });
   try {
+    await lease.channel();
+    await lease.health().catch(() => {});
     await lease.runLong("apt-get update -qq 2>&1 | tail -1", { pollMs: 5000 });
     log(`${name}: installing ${spec.apt.length} packages`);
     await lease.runLong(
@@ -75,8 +77,7 @@ async function build(name, spec) {
 
 const only = process.argv[2];
 const todo = Object.entries(IMAGES).filter(([n]) => !only || n.includes(only));
-// two at a time: the plan allows two concurrent machines
-for (let i = 0; i < todo.length; i += 2) {
-  await Promise.all(todo.slice(i, i + 2).map(([n, s]) => build(n, s)));
-}
+// sequential on purpose: two desktops coming up together raced their control channels and
+// both first execs failed. An image build has no deadline worth that.
+for (const [n, s] of todo) await build(n, s);
 console.log("\n" + JSON.stringify(out, null, 1));

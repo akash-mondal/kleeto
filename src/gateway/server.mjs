@@ -17,6 +17,7 @@ import { provision, terminate, publicView, leaksVendor } from "./vendors.mjs";
 import { buildChallenge, decodePaymentHeader, matchRequirements, Facilitator, X402_VERSION } from "./x402.mjs";
 import { viewerPage, attachLiveSocket } from "./live.mjs";
 import { Meter, verifyChain, genesis } from "./meter.mjs";
+import { control, handleFor, ACTIONS } from "./control.mjs";
 import { randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
@@ -437,6 +438,37 @@ app.post("/v1/leases/:id/stop", async (c) => {
   });
   live.delete(l.id);
   return c.json(publicView(closed, { origin: ORIGIN }));
+});
+
+/**
+ * Drive the machine.
+ *
+ * One endpoint for every verb, because an agent asked to learn twenty routes will use five.
+ * Only an open lease may be driven: a paused one has stopped paying, and control is the thing
+ * being paid for.
+ */
+app.post("/v1/leases/:id/control", async (c) => {
+  const lease = store.get(c.req.param("id"));
+  if (!lease) return c.json({ error: "no such lease" }, 404);
+  if (lease.state !== "open") {
+    return c.json({ error: `lease is ${lease.state}`,
+                    hint: lease.state === "paused" ? "top up the session to resume" : undefined }, 409);
+  }
+  const body = await c.req.json().catch(() => ({}));
+  try {
+    const handle = await handleFor(lease, live);
+    const result = await control(lease, handle, body);
+    return c.json({ leaseId: lease.id, action: body.action, ...result });
+  } catch (e) {
+    return c.json({ error: String(e.message).slice(0, 300) }, e.status ?? 500);
+  }
+});
+
+/** What this lease can be asked to do. */
+app.get("/v1/leases/:id/actions", (c) => {
+  const lease = store.get(c.req.param("id"));
+  if (!lease) return c.json({ error: "no such lease" }, 404);
+  return c.json({ leaseId: lease.id, kind: lease.kind, actions: ACTIONS[lease.kind] ?? [] });
 });
 
 /** The viewer. Ours, on our origin, with the supplier resolved server-side. */
