@@ -164,7 +164,7 @@ function glean(line) {
  */
 function clineDataDir(jobId) {
   const home = process.env.CLINE_DATA_DIR ?? pathx.join(osx.homedir(), ".cline", "data");
-  const dir = fsx.mkdtempSync(pathx.join(osx.tmpdir(), "kleeto-cline-"));
+  const dir = fsx.mkdtempSync(pathx.join(osx.tmpdir(), `kleeto-cline-${NAME}-`));
   fsx.chmodSync(dir, 0o700);
   fsx.cpSync(pathx.join(home, "settings"), pathx.join(dir, "settings"), { recursive: true });
   const file = pathx.join(dir, "settings", "cline_mcp_settings.json");
@@ -229,12 +229,14 @@ async function run(job) {
       env: { ...process.env, KLEETO_JOB_ID: job.id },
       stdio: ["ignore", "pipe", "pipe"],
     });
+    current = { job, child, forget };
 
     // A runner that is not installed must fail the job now. Without this the spawn error is
     // never handled, the job sits in "running" for its full stale window, and it holds a slot
     // someone else is queued for.
     child.on("error", async (err) => {
       forget();
+      current = null;
       await post(`/v1/jobs/${job.id}/report`, {
         state: "failed",
         result: `the ${spec.label} runner could not start: ${String(err.message).slice(0, 160)}`,
@@ -262,6 +264,7 @@ async function run(job) {
     child.on("close", async (code) => {
       clearTimeout(budget);
       forget();
+      current = null;
       let summary = null;
       for (const l of buf.split("\n").reverse()) {
         try {
@@ -281,6 +284,40 @@ async function run(job) {
       resolve();
     });
   });
+}
+
+/**
+ * Being stopped in the middle of a run.
+ *
+ * A deploy restarts the workers, and a run killed with its worker used to be left marked
+ * "running" with a question on the page nobody would ever answer — holding one of the two
+ * agents for the whole stale window, and leaving its settings copy, wallet key included, in
+ * /tmp. Now the run is told it was interrupted and the copy is deleted before the process goes.
+ */
+let current = null;
+process.on("SIGTERM", async () => {
+  const c = current;
+  if (c) {
+    try { c.child.kill("SIGTERM"); } catch {}
+    c.forget();
+    await Promise.race([
+      post(`/v1/jobs/${c.job.id}/report`, {
+        state: "failed",
+        result: "This run was interrupted when the service restarted, so it will not continue. Start a new one and it will pick up straight away.",
+      }),
+      new Promise((r) => setTimeout(r, 5000)),
+    ]).catch(() => {});
+    log(`${c.job.id} interrupted by shutdown`);
+  }
+  process.exit(0);
+});
+
+/* Anything under this worker's prefix at startup belongs to a run whose process is gone. */
+for (const name of fsx.readdirSync(osx.tmpdir())) {
+  if (name.startsWith(`kleeto-cline-${NAME}-`)) {
+    fsx.rmSync(pathx.join(osx.tmpdir(), name), { recursive: true, force: true });
+    log(`removed a settings copy left by an earlier run: ${name}`);
+  }
 }
 
 log(`polling ${GATEWAY} every ${POLL_MS}ms`);
