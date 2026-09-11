@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Website Clone",
-  description: "Pixel-perfect website clone",
+  title: "Kleeto: computers for AI agents, rented by the second",
+  description:
+    "Your agent rents a real browser, Linux machine or desktop and pays for it from its own Hedera wallet over x402. No account, no API key, no card.",
 };
 
 export default function RootLayout({

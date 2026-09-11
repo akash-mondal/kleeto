@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 /**
  * Isometric cube clusters for the Kleeto hero.
  *
- * Same lattice + 2:1 projection as `runloop/iso-cubes.tsx`, painted
+ * An isometric lattice with a 2:1 projection, painted
  * back-to-front (ascending x + y + z). Retoned: every face is a warm grey on
  * hue 85 with very low chroma, so the cluster reads as a quiet object on the
  * paper ground. Exactly one cube per page carries the `amber` tone on its top

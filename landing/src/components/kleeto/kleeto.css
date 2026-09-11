@@ -1,4 +1,4 @@
-/* Kleeto tokens — see docs/design/kleeto-brief.md §3. OKLCH, all neutrals tinted to hue 85. */
+/* Kleeto tokens. OKLCH, all neutrals tinted to hue 85. */
 .kleeto {
   --kl-ground: oklch(0.975 0.006 85);
   --kl-section: oklch(0.945 0.009 85);
@@ -19,7 +19,7 @@
   --kl-code-punct: oklch(0.55 0.014 85);
   --kl-code-gutter: oklch(0.74 0.012 85);
 
-  /* the dark-mock components from solari-product read these */
+  /* the dark showcase components read these */
   --sol-accent: var(--kl-amber);
   --sol-panel: var(--kl-card-deep);
   --sol-card: var(--kl-card);
@@ -28,7 +28,7 @@
 
   --font-display: var(--font-archivo), system-ui, sans-serif;
   --font-numeric: var(--font-azeret), ui-monospace, monospace;
-  /* the runloop primitives' eyebrow font */
+  /* the section eyebrow font */
   --font-plex-mono: var(--font-azeret);
 
   background: var(--kl-ground);
@@ -62,7 +62,7 @@
 .border-kl-line { border-color: var(--kl-line); }
 .bg-kl-amber { background: var(--kl-amber); }
 
-/* measured Solari reveal curve, opt-in */
+/* the scroll-reveal curve, opt-in */
 .kl-reveal {
   opacity: 0;
   transform: translateY(var(--kl-reveal-y, 28px));

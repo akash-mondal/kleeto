@@ -19,7 +19,7 @@ const MARGIN = 1.10;
 
 /**
  * The maximum-stealth browser comes from a second supplier, browser-use, because the first
- * one's stealth fleet has never had capacity (see research/kleeto-solari-surface.md §C).
+ * one's stealth fleet has never had capacity.
  * Measured 2026-09-10: it clears Cloudflare, PerimeterX, openai.com and indeed where the
  * fast pool gets a 403, with residential egress and automatic CAPTCHA solving on by default.
  */

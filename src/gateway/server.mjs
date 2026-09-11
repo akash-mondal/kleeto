@@ -22,6 +22,7 @@ import { JobQueue } from "./jobs.mjs";
 import { agentCatalogue, resolveAgent, DEFAULT_AGENT } from "../agents.mjs";
 import { discovery } from "../discovery.mjs";
 import { Deliverables, fetchFromMachine, safeName } from "./deliverables.mjs";
+import { Anchors } from "./hcs.mjs";
 import { randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
@@ -51,9 +52,10 @@ const meter = new Meter({
   store,
   lowWaterSeconds: Number(process.env.LOW_WATER_SECONDS ?? 60),
   anchorEverySec: Number(process.env.ANCHOR_EVERY_SEC ?? 60),
-  onAnchor: (a) => hcs?.anchor(a).catch(() => {}),
+  onAnchor: (a) => writeAnchor(a),
 });
-let hcs = null;   // set at boot when a topic is configured
+/** Set at boot when a topic is configured. Without one the chain is still kept, just not published. */
+let hcs = null;
 
 /**
  * Two at a time, because that is what the upstream plan and this VM actually carry. Everyone
@@ -76,6 +78,27 @@ function fanout(event, data) {
 }
 for (const e of ["open", "tick", "low", "exhausted", "anchor", "paid", "closed"]) {
   meter.on(e, (d) => fanout(e, d));
+}
+
+/**
+ * Publish a chain head, and remember where it landed.
+ *
+ * The lease keeps every anchor, so the proof endpoint can point a buyer at the exact topic
+ * messages to check, and the meter stream announces each one as it lands. A refused write is
+ * logged and left: the ticks are on disk, and the next head covers every second this one did.
+ */
+const anchoredTo = new Map();   // leaseId -> highest seq sent, including writes still in flight
+function writeAnchor(a) {
+  const lease = store.get(a.leaseId);
+  if (!hcs || !lease || a.seq <= (anchoredTo.get(a.leaseId) ?? 0)) return;
+  anchoredTo.set(a.leaseId, a.seq);
+  hcs.anchor({ ...a, lane: lease.lane, rateTinybar: lease.creditTinybar })
+    .then((landed) => {
+      const l = store.get(a.leaseId);
+      if (l) store.patch(l.id, { anchors: [...(l.anchors ?? []), landed] });
+      fanout("anchored", { leaseId: a.leaseId, topic: hcs.topic, ...landed });
+    })
+    .catch((e) => console.error(`anchor ${a.leaseId} #${a.seq} was not published: ${e.message}`));
 }
 
 /**
@@ -537,8 +560,12 @@ app.get("/v1/leases/:id/proof", (c) => {
     leaseId: lease.id, lane: lease.lane, rateTinybar: lease.creditTinybar,
     genesis: g, chainHead: proof.chainHead, seconds: proof.seconds,
     totalTinybar: proof.totalTinybar, selfCheck: check,
-    hcsTopic: process.env.HCS_TOPIC_ID ?? null,
+    hcsTopic: hcs?.topic ?? null,
     howToVerify: "sha256(prev|seq|leaseId|tinybar|at) for each tick, starting from genesis",
+    anchors: lease.anchors ?? [],
+    verifyOnLedger: hcs
+      ? `${net.mirror}/api/v1/topics/${hcs.topic}/messages: every anchor's head must equal the recomputed hash at its seq`
+      : null,
     ticks: proof.ticks ?? [],
   });
 });
@@ -707,6 +734,10 @@ app.post("/v1/leases/:id/stop", async (c) => {
     ...(fin.mb ? { mbUsed: fin.mb } : {}),
   });
   live.delete(l.id);
+  // the last head is published too, or a lease handed back inside a minute would never reach the topic
+  if (proof?.seconds > (l.anchors?.at(-1)?.seq ?? 0)) {
+    writeAnchor({ leaseId: l.id, seq: proof.seconds, head: proof.chainHead, at: new Date().toISOString(), final: true });
+  }
   /**
    * A returned machine is not the run's machine any more — but the run may still hold another.
    *
@@ -844,6 +875,10 @@ async function main() {
     throw new Error("HEDERA_OPERATOR_ID is not set: the gateway has no account to be paid into");
   }
   feePayer = await resolveFeePayer(net);
+  if (process.env.HCS_TOPIC_ID && process.env.HEDERA_OPERATOR_KEY) {
+    hcs = new Anchors({ net, operatorId: PAY_TO, operatorKey: process.env.HEDERA_OPERATOR_KEY,
+                        topicId: process.env.HCS_TOPIC_ID });
+  }
   /* A finished run nobody has looked at for half an hour is a run whose files nobody wants. */
   setInterval(() => {
     const gone = files.sweep((jobId) => ["done", "failed", "cancelled"].includes(jobs.view(jobId)?.state ?? "done"));
@@ -855,6 +890,7 @@ async function main() {
   fee payer  ${feePayer}   (resolved from /supported)
   pay to     ${PAY_TO}
   assets     USDC ${net.usdc} · HBAR 0.0.0
+  anchors    ${hcs ? `${hcs.topic} every ${meter.anchorEvery}s and at close` : "off (set HCS_TOPIC_ID and HEDERA_OPERATOR_KEY)"}
   origin     ${ORIGIN}
   listening  :${PORT}`);
 

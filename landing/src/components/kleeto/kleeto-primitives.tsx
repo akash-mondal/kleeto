@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { useInView } from "@/components/solari-product/use-motion";
+import { useInView } from "@/components/showcase/use-motion";
 
 /** Small uppercase label in a pill. Light = on the page ground, dark = on a card. */
 export function PillEyebrow({
@@ -129,7 +129,7 @@ export function Container({ children, className }: { children: ReactNode; classN
   return <div className={cn("mx-auto w-full max-w-[1200px] px-4 md:px-6", className)}>{children}</div>;
 }
 
-/** Scroll-reveal wrapper using the measured Solari curve. */
+/** Scroll-reveal wrapper using the shared reveal curve. */
 export function Reveal({
   children,
   className,

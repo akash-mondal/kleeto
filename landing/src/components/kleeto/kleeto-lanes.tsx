@@ -1,10 +1,10 @@
 "use client";
 
-import { AuroraCard } from "@/components/solari-product/aurora";
-import { ProductShot, type ProductShotAsset } from "@/components/solari-product/media";
+import { AuroraCard } from "@/components/showcase/aurora";
+import { ProductShot, type ProductShotAsset } from "@/components/showcase/media";
 
 /**
- * Frames from the recording in `agent-runs/hero-recording`, each lane card shows the
+ * Frames recorded off real leases: each lane card shows the
  * lane actually running, rather than an illustration of it.
  */
 const SHOTS = {

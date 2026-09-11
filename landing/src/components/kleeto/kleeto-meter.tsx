@@ -1,6 +1,6 @@
 "use client";
 
-import { StatefulTerminal, type TerminalLine, type TerminalState } from "@/components/solari-product/terminal-loop";
+import { StatefulTerminal, type TerminalLine, type TerminalState } from "@/components/showcase/terminal-loop";
 
 import { BoxedWord, Container, DarkCard, Reveal, SectionHeading } from "./kleeto-primitives";
 import { RailMark } from "./rail-marks";

@@ -1,9 +1,9 @@
 "use client";
 
-import { AuroraCard } from "@/components/solari-product/aurora";
-import { AppDock, ProductShot, type ProductShotAsset } from "@/components/solari-product/media";
+import { AuroraCard } from "@/components/showcase/aurora";
+import { AppDock, ProductShot, type ProductShotAsset } from "@/components/showcase/media";
 
-/** A frame from the recording in `agent-runs/hero-recording`, a real lease, not a mock. */
+/** A frame recorded off a real desktop lease, not a mock. */
 const REAL_WORKSPACE: ProductShotAsset = {
   src: "/images/kleeto/show-blender.jpg",
   width: 1280,

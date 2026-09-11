@@ -1,7 +1,7 @@
 "use client";
 
-import { AuroraCard } from "@/components/solari-product/aurora";
-import { ProductShot, type ProductShotAsset } from "@/components/solari-product/media";
+import { AuroraCard } from "@/components/showcase/aurora";
+import { ProductShot, type ProductShotAsset } from "@/components/showcase/media";
 
 /** Three captures from the browser take, each a different site and a different job. */
 const SHOT_STORE: ProductShotAsset = { src: "/images/kleeto/web-store.jpg", width: 1280, height: 720 };

@@ -16,7 +16,7 @@ const EXPECT = {
 };
 const images = JSON.parse(readFileSync("var/images.json", "utf8"));
 const a = new SolariAdapter({ apiKey: process.env.SOLARI_API_KEY });
-mkdirSync("agent-runs/images", { recursive: true });
+mkdirSync("var/images", { recursive: true });
 
 for (const [name, tools] of Object.entries(EXPECT)) {
   const snap = images[name]?.snapshotId;
@@ -35,7 +35,7 @@ for (const [name, tools] of Object.entries(EXPECT)) {
     await new Promise((r) => setTimeout(r, 12000));
     const win = await lease.sh(`export DISPLAY=:0; xdotool search --onlyvisible --name '.' getwindowname %@ 2>/dev/null | head -4`).catch(() => "");
     const png = Buffer.from(await lease.screenshot({ format: "png" }));
-    writeFileSync(`agent-runs/images/${name}.png`, png);
+    writeFileSync(`var/images/${name}.png`, png);
     console.log(`${name.padEnd(30)} boot ${boot}s  ${found.trim()}`);
     console.log(`${" ".repeat(30)} launched ${app}: windows [${win.trim().replace(/\n/g, " | ").slice(0, 90)}]  shot ${(png.length/1024).toFixed(0)}KB`);
   } finally { await lease.terminate().catch(() => {}); }

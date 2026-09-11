@@ -3,10 +3,16 @@
   "private": true,
   "type": "module",
   "version": "0.1.0",
-  "description": "Rent an agent a computer by the second, paid over x402 on Hedera.",
+  "description": "Computers for AI agents: a browser, a Linux machine or a full desktop, rented by the second and paid over x402 on Hedera.",
+  "author": "Akash Mondal",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/akash-mondal/kleeto.git"
+  },
+  "homepage": "https://kleeto.fun",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "@hiero-ledger/sdk": "2.85.0",
@@ -24,6 +30,15 @@
     "zod": "^4.4.3"
   },
   "scripts": {
-    "net": "node scripts/check-networks.mjs"
+    "gateway": "node --env-file=.env src/gateway/server.mjs",
+    "worker": "node --env-file=.env src/worker/runner.mjs",
+    "bootstrap": "node --env-file=.env scripts/bootstrap-hedera.mjs",
+    "associate-usdc": "node --env-file=.env scripts/associate-usdc.mjs",
+    "fund-agent": "node --env-file=.env scripts/fund-agent.mjs",
+    "images": "node --env-file=.env scripts/build-images.mjs",
+    "net": "node scripts/check-networks.mjs",
+    "pay": "node --env-file=.env scripts/agent-pay.mjs",
+    "test:meter": "node --env-file=.env scripts/test-meter.mjs",
+    "test:live": "node --env-file=.env scripts/test-live-view.mjs"
   }
 }

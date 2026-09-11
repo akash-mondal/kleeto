@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { useInView, usePrefersReducedMotion } from "@/components/solari-product/use-motion";
+import { useInView, usePrefersReducedMotion } from "@/components/showcase/use-motion";
 import { cn } from "@/lib/utils";
 
 /**

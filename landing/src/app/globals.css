@@ -128,11 +128,10 @@
     @apply font-sans;
   }
 }
-/* ── Reference tokens, measured from the live sources on 2026-09-04 ──────────────
-   Solari  (getsolari.com)  dark surface, amber accent, tight radii
-   Runloop (runloop.ai)     light surface, forest accent, generous radii
-   Both sets are kept side by side so pages can be built 1:1 against either source
-   before the two are fused. Values are computed styles, not eyeballed. */
+/* ── Surface tokens ───────────────────────────────────────────────────────────────
+   sol-*  the dark surface: amber accent, tight radii
+   run-*  the light surface: forest accent, generous radii
+   The Kleeto page alternates between the two; its own OKLCH tokens live in kleeto.css. */
 :root {
   /* Solari */
   --sol-bg: #090909;
