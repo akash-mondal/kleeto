@@ -139,10 +139,10 @@ export function Composer({
         <div className="mt-7 flex items-start gap-2.5 rounded-[12px] border border-[var(--kl-amber)]/25 bg-[var(--kl-amber)]/[0.07] px-4 py-3">
           <span aria-hidden className="mt-[6px] size-1.5 shrink-0 rounded-full bg-[var(--kl-amber)]" />
           <p className="text-[13px] leading-[1.55] text-white/70">
-            <span className="text-white/90">Both machines are rented right now.</span>{" "}
+            <span className="text-white/90">Both agents are busy right now.</span>{" "}
             {queued > 0
               ? `${queued} task${queued === 1 ? " is" : "s are"} already waiting. Send yours and it joins the line`
-              : "Send yours and it takes the next machine returned"}
+              : "Send yours and it starts as soon as one finishes"}
             {" — the agent starts the moment one frees up, and nothing is charged for waiting."}
           </p>
         </div>
@@ -229,7 +229,7 @@ export function Composer({
       {placed ? (
         <p className="kl-num mt-3 text-[12px] text-[var(--kl-amber)]">
           {placed.position > 0
-            ? `queued at position ${placed.position} — it starts when a machine frees up`
+            ? `queued at position ${placed.position} — it starts when an agent frees up`
             : "picked up — the agent is renting a machine now"}
         </p>
       ) : null}

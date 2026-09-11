@@ -3,11 +3,11 @@
 import { useBoard } from "./use-board";
 
 /**
- * How many machines are free right now.
+ * How many agents are free right now.
  *
  * The earlier version listed every job, which meant the page filled with other people's
  * finished work: noise that told a visitor nothing about whether they could go. A visitor only
- * needs one number, and the one they need is whether there is a machine for them.
+ * needs one number, and the one they need is whether there is an agent free to take their task.
  */
 export function MachinesFree() {
   const { board, free, queued: waiting } = useBoard();
@@ -22,8 +22,9 @@ export function MachinesFree() {
         {free === null ? "—" : `${free} of ${board!.concurrency}`}
       </span>
       <span className="text-white/45">
-        {/* "1 of 2 machine free" — the noun belongs to the two, not to the one that is free */}
-        {board && board.concurrency === 1 ? "machine free" : "machines free"}
+        {/* Agents, not machines: a run holds one of these from the moment it starts, while it
+            is still only talking and has rented nothing. The noun belongs to the two, not the one. */}
+        {board && board.concurrency === 1 ? "agent free" : "agents free"}
         {waiting > 0 ? <span className="text-white/30"> · {waiting} waiting</span> : null}
       </span>
     </span>
