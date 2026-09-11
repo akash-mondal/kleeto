@@ -53,8 +53,13 @@ export function KleetoHero() {
         <Reveal className="w-full" delayMs={160} y={15.6}>
           <div className="mt-9 flex flex-col items-center gap-5">
             <InstallCommand />
-            <PillButton href="/demo" className="w-full max-w-[280px] sm:w-auto">
-              Try the demo
+            {/* The nav already carries the solid "Try the demo". This one sits under a dark command
+                block, so it is the light, outlined partner to it: a live dot says there is a real
+                agent on the other side, not a video. */}
+            <PillButton href="/demo" variant="ghost" className="group w-full max-w-[280px] gap-2.5 sm:w-auto">
+              <span aria-hidden className="kl-pulse size-1.5 rounded-full bg-[var(--kl-amber)]" />
+              Try it live
+              <span aria-hidden className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
             </PillButton>
           </div>
         </Reveal>
