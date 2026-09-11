@@ -69,6 +69,7 @@ node scripts/kleeto.mjs return <leaseId>                          # the meter st
 - [Renting a computer, on the wire](#renting-a-computer-on-the-wire)
 - [Why Hedera](#why-hedera)
 - [Hedera, feature by feature](#hedera-feature-by-feature)
+- [Finding Kleeto, and knowing who it is](#finding-kleeto-and-knowing-who-it-is)
 - [The meter](#the-meter)
 - [Checking a bill yourself](#checking-a-bill-yourself)
 - [The live demo](#the-live-demo)
@@ -241,10 +242,11 @@ lives in one table in `src/networks.mjs`. `npm run net` resolves both networks t
 
 ## Hedera, feature by feature
 
-Every row links to something a live agent did on testnet: GPT-6 Astra, through Codex, renting a
-machine on `api.kleeto.fun`, paying for it and handing it back.
+Every row links to something real on testnet. The payment rows come from the live demo agent
+(GPT-6 Astra, through Codex) renting a machine on `api.kleeto.fun`, paying for it and handing it
+back.
 
-| Hedera feature | How Kleeto uses it | On the ledger |
+| Feature | How Kleeto uses it | See it |
 |---|---|---|
 | **x402 through Blocky402** | Every 402 is the `exact` scheme on `hedera:testnet`, verified and settled by the Blocky402 facilitator | [the agent's payment](https://hashscan.io/testnet/transaction/0.0.7162784-1789153547-123279951) |
 | **HTS token in the settlement path** | Agents pay in USDC, a Hedera Token Service token, or in HBAR. Every 402 offers both | [USDC `0.0.429274`](https://hashscan.io/testnet/token/0.0.429274) |
@@ -252,6 +254,37 @@ machine on `api.kleeto.fun`, paying for it and handing it back.
 | **Metering, not a flat charge** | Credit is drawn down one second at a time, and every second is hash-chained to the one before | `GET /v1/leases/:id/proof` |
 | **Payment audit trail on HCS** | Every settlement, a chain head each minute, and a closing receipt with the total, on one topic | [topic `0.0.10454763`](https://hashscan.io/testnet/topic/0.0.10454763): [payment](https://hashscan.io/testnet/transaction/0.0.7284970-1789153555-918576967), [receipt](https://hashscan.io/testnet/transaction/0.0.7284970-1789153581-771917719) |
 | **Mirror node** | Prices come from its exchange rate, and anyone recomputes a bill from it with no key | [`/network/exchangerate`](https://testnet.mirrornode.hedera.com/api/v1/network/exchangerate) |
+| **On-chain agent identity (HCS-14, HCS-11)** | The gateway and the demo agent each carry a Universal Agent ID in an HCS-11 profile, inscribed on HCS-1, that their account memo points to | gateway [profile](https://hashscan.io/testnet/topic/0.0.10482737), demo agent [profile](https://hashscan.io/testnet/topic/0.0.10482740) |
+| **Agent discovery** | An A2A 1.0 agent card and endpoint, and an x402 discovery listing of every paid resource with its price | [agent card](https://api.kleeto.fun/.well-known/agent-card.json), [x402 listing](https://api.kleeto.fun/discovery/resources) |
+
+---
+
+## Finding Kleeto, and knowing who it is
+
+An agent that has never heard of Kleeto can still find it, and check who it is dealing with
+before it pays anything.
+
+- **A2A.** An agent card at
+  [`/.well-known/agent-card.json`](https://api.kleeto.fun/.well-known/agent-card.json), in the
+  A2A 1.0 shape, and a JSON-RPC endpoint at `/a2a` that answers `SendMessage` with what Kleeto
+  sells, what it costs, and how to pay.
+- **x402 discovery.** [`/discovery/resources`](https://api.kleeto.fun/discovery/resources), in
+  the Bazaar listing format, and [`/.well-known/x402`](https://api.kleeto.fun/.well-known/x402):
+  every paid resource with its x402 v2 payment requirements, so a client can budget before it
+  ever sees a 402.
+- **Identity on the ledger.** The account payments settle into, and the account the demo agent
+  pays from, each carry an HCS-14 Universal Agent ID inside an HCS-11 profile. The profile is
+  inscribed on an HCS-1 topic (brotli, base64, a submit key and no admin key, so it can't be
+  deleted), and the account memo points at it. `npm run identity` writes both, and any HCS-11
+  resolver reads them back from the ledger alone.
+
+| Agent | Account | Profile | Universal Agent ID |
+|---|---|---|---|
+| Kleeto gateway | [`0.0.7284970`](https://hashscan.io/testnet/account/0.0.7284970) | [`hcs://1/0.0.10482737`](https://hashscan.io/testnet/topic/0.0.10482737) | `uaid:aid:69HXbXcW…;uid=0.0.7284970;registry=self;proto=a2a;nativeId=hedera:testnet:0.0.7284970;domain=api.kleeto.fun` |
+| Demo agent | [`0.0.10454764`](https://hashscan.io/testnet/account/0.0.10454764) | [`hcs://1/0.0.10482740`](https://hashscan.io/testnet/topic/0.0.10482740) | `uaid:aid:3QpuULhR…;uid=0.0.10454764;registry=self;proto=mcp;nativeId=hedera:testnet:0.0.10454764` |
+
+The agent card, the x402 manifest and the catalogue all name the gateway's identity, so what an
+agent discovered over HTTP can be checked against the account it ends up paying.
 
 ---
 
@@ -399,6 +432,7 @@ cp .env.example .env         # operator account, provider keys
 npm run bootstrap            # creates the HCS topic and a funded test agent (var/hedera.json)
 npm run associate-usdc       # lets the gateway be paid in USDC
 npm run images               # builds the prepared desktop images
+npm run identity             # HCS-14 ids and HCS-11 profiles for the gateway and agent accounts
 npm run gateway              # http://localhost:8787
 ```
 
@@ -429,6 +463,9 @@ Base URL `https://api.kleeto.fun`. The two routes marked 402 are where money mov
 
 | | Method | Path | What it does |
 |---|---|---|---|
+| **Discover** | `GET` | `/.well-known/agent-card.json` | the A2A agent card, with the gateway's HCS-14 identity |
+| | `POST` | `/a2a` | A2A JSON-RPC: `SendMessage` answers with the catalogue and how to pay |
+| | `GET` | `/discovery/resources` · `/.well-known/x402` | every paid resource with its x402 payment requirements |
 | **Choose** | `GET` | `/v1/catalogue` | everything an agent needs to decide: lanes, prices, images, what each kind can do |
 | | `GET` | `/v1/lanes` · `/v1/images` | live per-second prices; what each desktop image has installed |
 | **Pay** | `POST` | `/v1/sessions` | open a session |
@@ -467,6 +504,7 @@ src/
   lanes.mjs    the catalogue and its pricing
   images.mjs   the desktop images
   networks.mjs every network-specific id, testnet and mainnet
+  identity.mjs HCS-14 agent ids and the HCS-11 profiles behind them
 scripts/       ledger setup, image builds, end-to-end checks
 deploy/        the VM and the headless agent host behind the demo
 landing/       kleeto.fun: the site and the live demo (Next.js)

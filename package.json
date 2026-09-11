@@ -36,6 +36,7 @@
     "associate-usdc": "node --env-file=.env scripts/associate-usdc.mjs",
     "fund-agent": "node --env-file=.env scripts/fund-agent.mjs",
     "images": "node --env-file=.env scripts/build-images.mjs",
+    "identity": "node --env-file=.env scripts/identity.mjs",
     "net": "node scripts/check-networks.mjs",
     "pay": "node --env-file=.env scripts/agent-pay.mjs",
     "test:meter": "node --env-file=.env scripts/test-meter.mjs",

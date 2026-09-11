@@ -9,7 +9,8 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
 
-import { resolveNetwork, resolveFeePayer, hashscanTx, hashscanAccount, mirror } from "../networks.mjs";
+import { resolveNetwork, resolveFeePayer, hashscanTx, hashscanAccount, hashscanTopic, mirror } from "../networks.mjs";
+import { gatewayIdentity, demoAgentIdentity, profilePointer } from "../identity.mjs";
 import { catalogue, requireLane } from "../lanes.mjs";
 import { imageCatalogue } from "../images.mjs";
 import { Store, newId } from "./store.mjs";
@@ -184,7 +185,14 @@ app.get("/v1/agents", (c) => c.json({ agents: agentCatalogue(), default: DEFAULT
  */
 app.get("/v1/catalogue", async (c) => {
   const cat = await catalogue(net);
-  return c.json(discovery({ cat, network: cat.network }));
+  return c.json({
+    ...discovery({ cat, network: cat.network }),
+    discoverable: {
+      agentCard: `${ORIGIN}/.well-known/agent-card.json`,
+      x402Discovery: `${ORIGIN}/discovery/resources`,
+      identity: await gatewayWho(),
+    },
+  });
 });
 
 app.get("/v1/lanes", async (c) => {
@@ -196,6 +204,171 @@ app.get("/v1/lanes", async (c) => {
     stealth: Boolean(l.stealth), captcha: Boolean(l.captcha),
   }));
   return c.json({ network: cat.network, usdPerHbar: cat.usdPerHbar, assets: ["USDC", "HBAR"], lanes });
+});
+
+/* ---------------------------------------------------------------- discovery ---- */
+/**
+ * How an agent finds Kleeto without being told about it.
+ *
+ * Three doors onto the same catalogue, one per convention an agent might already speak: an A2A
+ * Agent Card, an x402 discovery listing of every paid resource with its price, and the
+ * `/.well-known/x402` manifest crawlers read. Each names the gateway's identity on the ledger
+ * (an HCS-14 UAID and the HCS-11 profile its account memo points at), so what an agent
+ * discovered can be checked against the account it ends up paying.
+ */
+const pointers = new Map();   // accountId -> { at, value }
+async function pointer(accountId) {
+  if (!accountId) return null;
+  const hit = pointers.get(accountId);
+  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.value;
+  const value = await profilePointer(net, accountId).catch(() => hit?.value ?? null);
+  pointers.set(accountId, { at: Date.now(), value });
+  return value;
+}
+const profileView = (p) => (p ? { memo: p.memo, hrl: p.hrl, topic: p.topicId, explorer: hashscanTopic(net, p.topicId) } : null);
+
+async function gatewayWho() {
+  const id = gatewayIdentity({ net, accountId: PAY_TO, origin: ORIGIN, auditTopic: hcs?.topic ?? process.env.HCS_TOPIC_ID ?? null });
+  return { standard: "HCS-14", uaid: id.uaid, account: PAY_TO, network: net.caip2,
+           profile: profileView(await pointer(PAY_TO)), auditTopic: id.profile.properties.auditTopic };
+}
+async function demoAgentWho() {
+  const agentId = process.env.DEMO_AGENT_ID;
+  if (!agentId) return null;
+  const id = demoAgentIdentity({ net, accountId: agentId, origin: ORIGIN });
+  return { standard: "HCS-14", uaid: id.uaid, account: agentId, network: net.caip2, profile: profileView(await pointer(agentId)) };
+}
+
+/** Every paid resource with its x402 v2 payment requirements, so a client can budget before a 402. */
+async function paidResources() {
+  const cat = await catalogue(net);
+  const lastUpdated = Math.floor(Date.now() / 1000);
+  const accepts = (tinybar) => buildChallenge({ net, payTo: PAY_TO, feePayer, resource: "", description: "", tinybar, usdPerHbar: cat.usdPerHbar })
+    .accepts.map(({ scheme, network, amount, asset, payTo, maxTimeoutSeconds, extra }) => ({ scheme, network, amount, asset, payTo, maxTimeoutSeconds, extra }));
+  return [
+    {
+      resource: `${ORIGIN}/v1/sessions/:id/topup`, type: "http", x402Version: X402_VERSION,
+      accepts: accepts(100_000_000), lastUpdated,
+      metadata: {
+        method: "POST", routeTemplate: "/v1/sessions/:id/topup", category: "compute",
+        description: "Credit on a metered session, drawn down one second at a time by every lease on it. Priced here for 1 HBAR of credit; the body's tinybar sets the amount.",
+        openSessionFirst: `POST ${ORIGIN}/v1/sessions`, body: { tinybar: 100_000_000 },
+      },
+    },
+    ...Object.values(cat.lanes).map((l) => ({
+      resource: `${ORIGIN}/v1/leases?lane=${l.id}`, type: "http", x402Version: X402_VERSION,
+      accepts: accepts(l.creditTinybar * 180), lastUpdated,
+      metadata: {
+        method: "POST", category: "compute", lane: l.id, kind: l.family,
+        description: `${l.id}, a ${l.family}, prepaid for three minutes. On a funded session the same lease is metered per second instead.`,
+        body: { lane: l.id, seconds: 180 }, tinybarPerSecond: l.creditTinybar, usdPerHour: l.usdPerHour,
+      },
+    })),
+  ];
+}
+
+app.get("/discovery/resources", async (c) => {
+  const items = await paidResources();
+  const limit = Math.min(100, Math.max(1, Number(c.req.query("limit") ?? 20)));
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0));
+  return c.json({ x402Version: X402_VERSION, items: items.slice(offset, offset + limit),
+                  pagination: { limit, offset, total: items.length } });
+});
+
+app.get("/.well-known/x402", async (c) => {
+  const items = await paidResources();
+  return c.json({
+    version: 1, x402Version: X402_VERSION, name: "Kleeto",
+    description: "Computers for AI agents, rented by the second and paid over x402 on Hedera.",
+    network: net.caip2, resources: items.map((i) => i.resource),
+    discovery: `${ORIGIN}/discovery/resources`, agentCard: `${ORIGIN}/.well-known/agent-card.json`,
+    facilitator: { baseUrl: net.facilitator, feePayer },
+    identity: await gatewayWho(), updated: new Date().toISOString(),
+  });
+});
+
+/** The A2A Agent Card, in the A2A 1.0 shape. */
+app.get("/.well-known/agent-card.json", async (c) => {
+  const cat = await catalogue(net);
+  const lanes = Object.values(cat.lanes);
+  const topic = hcs?.topic ?? process.env.HCS_TOPIC_ID ?? null;
+  c.header("Cache-Control", "public, max-age=300");
+  return c.json({
+    name: "Kleeto",
+    description: "Rents AI agents real computers by the second: a browser, a headless Linux machine, or a full Linux desktop with applications installed. Paid over x402 on Hedera, in USDC or HBAR, from the agent's own wallet. No account, no API key.",
+    supportedInterfaces: [{ url: `${ORIGIN}/a2a`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }],
+    version: "1.0.0",
+    provider: { organization: "Kleeto", url: "https://kleeto.fun" },
+    documentationUrl: "https://github.com/akash-mondal/kleeto",
+    iconUrl: "https://kleeto.fun/icon.svg",
+    capabilities: {
+      streaming: false, pushNotifications: false,
+      extensions: [{
+        uri: "https://hol.org/docs/standards/hcs-14",
+        description: "Universal Agent ID and HCS-11 profile, on the Hedera account payments settle into",
+        required: false, params: await gatewayWho(),
+      }],
+    },
+    defaultInputModes: ["text/plain"],
+    defaultOutputModes: ["text/plain", "application/json"],
+    skills: [
+      {
+        id: "rent-computer", name: "Rent a computer by the second",
+        description: `Browsers, Linux machines and desktops (${lanes.map((l) => l.id).join(", ")}), from $${Math.min(...lanes.map((l) => l.usdPerHour)).toFixed(3)} an hour. Answer the x402 challenge at POST ${ORIGIN}/v1/sessions/{id}/topup, then POST ${ORIGIN}/v1/leases.`,
+        tags: ["x402", "hedera", "compute", "browser", "desktop", "metered"],
+        examples: ["What can I rent, and what does a desktop cost per minute?", "Rent the smallest Linux machine for three minutes."],
+      },
+      {
+        id: "verify-bill", name: "Verify a bill on Hedera",
+        description: `Every second is hash-chained. Payments, chain heads and closing receipts are published to Hedera Consensus Service topic ${topic ?? "(not configured)"}, and GET ${ORIGIN}/v1/leases/{id}/proof returns the working.`,
+        tags: ["hcs", "audit", "receipts"],
+        examples: ["How do I check what a lease was charged?"],
+      },
+    ],
+  });
+});
+
+/**
+ * The A2A endpoint the card advertises.
+ *
+ * One method, `SendMessage`, answered straight away with what Kleeto sells, what it costs and how
+ * to pay. The renting itself happens over x402 on the HTTP API, where the payment belongs. A
+ * pre-1.0 client calling `message/send` gets the same answer in the older shape.
+ */
+app.post("/a2a", async (c) => {
+  const req = await c.req.json().catch(() => null);
+  const reply = (body) => c.json({ jsonrpc: "2.0", id: req?.id ?? null, ...body });
+  if (!req || req.jsonrpc !== "2.0" || typeof req.method !== "string") {
+    return reply({ error: { code: -32600, message: "Invalid Request" } });
+  }
+  const legacy = req.method === "message/send";
+  if (req.method !== "SendMessage" && !legacy) {
+    return reply({ error: { code: -32601, message: `Method not found: ${req.method}` } });
+  }
+
+  const cat = await catalogue(net);
+  const lanes = Object.values(cat.lanes);
+  const asked = (req.params?.message?.parts ?? []).map((p) => p?.text ?? "").join(" ").trim();
+  const text = [
+    `Kleeto rents computers by the second and takes payment over x402 on ${net.caip2}, in USDC or HBAR.`,
+    ...lanes.map((l) => `${l.id} (${l.family}): $${l.usdPerHour} an hour, ${l.creditTinybar} tinybar a second`),
+    `To rent: POST ${ORIGIN}/v1/sessions, answer the 402 at POST ${ORIGIN}/v1/sessions/{id}/topup, then POST ${ORIGIN}/v1/leases with a lane.`,
+    `Payments, meter heads and receipts are on Hedera Consensus Service topic ${hcs?.topic ?? "(not configured)"}.`,
+  ].join("\n");
+  const data = {
+    asked: asked || null,
+    catalogue: `${ORIGIN}/v1/catalogue`, x402Discovery: `${ORIGIN}/discovery/resources`,
+    lanes: lanes.map((l) => ({ lane: l.id, kind: l.family, usdPerHour: l.usdPerHour, tinybarPerSecond: l.creditTinybar })),
+    identity: await gatewayWho(),
+  };
+  const messageId = randomBytes(12).toString("hex");
+  const contextId = req.params?.message?.contextId;
+  if (legacy) {
+    return reply({ result: { kind: "message", messageId, role: "agent", ...(contextId ? { contextId } : {}),
+                             parts: [{ kind: "text", text }, { kind: "data", data }] } });
+  }
+  return reply({ result: { message: { messageId, role: "ROLE_AGENT", ...(contextId ? { contextId } : {}),
+                                      parts: [{ text }, { data, mediaType: "application/json" }] } } });
 });
 
 /* ------------------------------------------------------------------ sessions ---- */
@@ -523,6 +696,7 @@ app.get("/v1/demo", async (c) => {
       usdc: { units: Number(usdcRaw?.balance ?? 0), display: (Number(usdcRaw?.balance ?? 0) / 1e6).toFixed(6) },
       usdPerHbar: cat.usdPerHbar,
       explorer: hashscanAccount(net, agentId),
+      identity: await demoAgentWho(),
       queue: jobs.board(),
       lanes: Object.values(cat.lanes).map((l) => ({ lane: l.id, kind: l.family, usdPerHour: l.usdPerHour })),
     };
@@ -602,7 +776,7 @@ app.get("/v1/leases/:id/proof", (c) => {
  */
 app.post("/v1/leases", async (c) => {
   const body = await c.req.json().catch(() => ({}));
-  const laneId = String(body.lane ?? "");
+  const laneId = String(body.lane ?? c.req.query("lane") ?? "");
   const seconds = Math.min(Math.max(Number(body.seconds ?? 600), 30), MAX_SECONDS);
 
   let lane;
