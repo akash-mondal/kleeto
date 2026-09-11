@@ -18,11 +18,8 @@ export function KleetoCtaBand() {
               Your agent holds its own HBAR or USDC on Hedera and answers each 402 itself. There is no Kleeto account, no API key and no card on file.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
-              <PillButton href="#" tone="dark" className="w-full max-w-[280px] sm:w-auto">
+              <PillButton href="/demo" tone="dark" className="w-full max-w-[280px] sm:w-auto">
                 Rent a live desktop free
-              </PillButton>
-              <PillButton href="#" tone="dark" variant="ghost" className="w-full max-w-[280px] sm:w-auto">
-                Watch one work
               </PillButton>
             </div>
           </div>

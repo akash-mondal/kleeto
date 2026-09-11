@@ -50,9 +50,6 @@ export function KleetoNav() {
           </div>
 
           <div className="hidden shrink-0 items-center justify-end gap-2.5 lg:flex">
-            <PillButton href="#" variant="ghost" className="px-5 py-2.5">
-              Read the docs
-            </PillButton>
             <PillButton href="/demo" className="px-5 py-2.5">
               Try the demo
             </PillButton>
@@ -96,9 +93,6 @@ export function KleetoNav() {
               </a>
             ))}
             <div className="mt-2 flex flex-col gap-2">
-              <PillButton href="#" variant="ghost" className="w-full">
-                Read the docs
-              </PillButton>
               <PillButton href="/demo" className="w-full">
                 Try the demo
               </PillButton>

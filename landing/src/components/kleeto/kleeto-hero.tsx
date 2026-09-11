@@ -1,4 +1,5 @@
 import { HeroFilm } from "./hero-film";
+import { InstallCommand } from "./install-command";
 import { KLEETO_CUBES_LEFT, KLEETO_CUBES_RIGHT, KleetoCubes } from "./kleeto-cubes";
 import { BoxedWord, Container, PillButton, Reveal } from "./kleeto-primitives";
 
@@ -50,12 +51,10 @@ export function KleetoHero() {
         </Reveal>
 
         <Reveal className="w-full" delayMs={160} y={15.6}>
-          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-9 flex flex-col items-center gap-5">
+            <InstallCommand />
             <PillButton href="/demo" className="w-full max-w-[280px] sm:w-auto">
               Try the demo
-            </PillButton>
-            <PillButton href="#" variant="ghost" className="w-full max-w-[280px] sm:w-auto">
-              Watch one work
             </PillButton>
           </div>
         </Reveal>
