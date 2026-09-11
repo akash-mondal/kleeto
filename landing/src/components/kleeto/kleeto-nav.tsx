@@ -6,13 +6,17 @@ import { cn } from "@/lib/utils";
 import { KleetoMark } from "./kleeto-logo";
 import { PillButton } from "./kleeto-primitives";
 
+/* Section links carry the path, so they still land from /demo and not only from the home page. */
 const LINKS = [
-  { label: "Desktop", href: "#desktop" },
-  { label: "Browser", href: "#browser" },
-  { label: "Lanes", href: "#lanes" },
-  { label: "x402", href: "#meter" },
-  { label: "Docs", href: "#" },
+  { label: "Desktop", href: "/#desktop" },
+  { label: "Browser", href: "/#browser" },
+  { label: "Lanes", href: "/#lanes" },
+  { label: "x402", href: "/#meter" },
+  { label: "Docs", href: "https://github.com/akash-mondal/kleeto#readme" },
 ] as const;
+
+const external = (href: string) =>
+  href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {};
 
 function Wordmark() {
   return (
@@ -42,6 +46,7 @@ export function KleetoNav() {
               <a
                 key={link.label}
                 href={link.href}
+                {...external(link.href)}
                 className="py-2 text-[13px] text-kl-muted transition-colors hover:text-kl-fg"
               >
                 {link.label}
@@ -86,6 +91,7 @@ export function KleetoNav() {
               <a
                 key={link.label}
                 href={link.href}
+                {...external(link.href)}
                 onClick={() => setOpen(false)}
                 className="rounded-[8px] px-2 py-2.5 text-[14px] text-kl-fg"
               >
