@@ -19,13 +19,12 @@ const NETWORK = process.env.KLEETO_NETWORK ?? "hedera:testnet";
 /**
  * Which run this agent is working on, if a person is watching one.
  *
- * The worker sets KLEETO_JOB_ID when it spawns the model — but both Codex and Cline launch
- * their MCP servers with an explicit env block from their own config, so the variable does
- * not survive the hop unless it was named there. Codex can be told per run with a `-c`
- * override; Cline cannot, so as a fallback this walks up its own process tree and reads the
- * environment of whichever ancestor the worker did set it on. Same user, same box, so /proc
- * is readable; off Linux there is no /proc and the answer is simply "nobody is watching",
- * which is the right answer for an agent running on someone's laptop.
+ * Codex and Cline both launch MCP servers with the env block from their own config, so the
+ * worker has to write the variable there: a `-c` override for Codex, a per-run copy of the
+ * settings for Cline, whose hub starts this server outside the CLI's process tree entirely.
+ * Walking up the process tree stays as a fallback for a runner that does inherit it. Off
+ * Linux there is no /proc and the answer is simply "nobody is watching", which is the right
+ * answer for an agent running on someone's laptop.
  */
 function resolveJob() {
   if (process.env.KLEETO_JOB_ID) return process.env.KLEETO_JOB_ID;

@@ -6,6 +6,9 @@
  * limit it exists to enforce. Run several of these to raise throughput, up to the queue's
  * concurrency and no further, because the queue stops handing out work past that.
  */
+import * as fsx from "node:fs";
+import * as osx from "node:os";
+import * as pathx from "node:path";
 import { spawn } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { AGENTS } from "../agents.mjs";
@@ -139,6 +142,35 @@ function glean(line) {
   return Object.keys(out).length ? out : null;
 }
 
+/**
+ * A Cline run's own settings, which is how the run's identity reaches the Kleeto tool server.
+ *
+ * Cline 3 starts tool servers from its hub rather than as children of the `cline` process, so
+ * nothing set in that process's environment arrives: the tool server answered "nobody is
+ * watching" and every question and message from a Cline model went nowhere. The one thing that
+ * does arrive is the env block in the settings file. Each run gets a private copy of the
+ * settings with KLEETO_JOB_ID written into that block, used through --data-dir.
+ *
+ * The copy holds the wallet key and the provider login, so it lives in a 0700 temp directory
+ * and is deleted the moment the run ends.
+ */
+function clineDataDir(jobId) {
+  const home = process.env.CLINE_DATA_DIR ?? pathx.join(osx.homedir(), ".cline", "data");
+  const dir = fsx.mkdtempSync(pathx.join(osx.tmpdir(), "kleeto-cline-"));
+  fsx.chmodSync(dir, 0o700);
+  fsx.cpSync(pathx.join(home, "settings"), pathx.join(dir, "settings"), { recursive: true });
+  const file = pathx.join(dir, "settings", "cline_mcp_settings.json");
+  const cfg = JSON.parse(fsx.readFileSync(file, "utf8"));
+  const kleeto = cfg.mcpServers?.kleeto;
+  if (!kleeto) {
+    fsx.rmSync(dir, { recursive: true, force: true });
+    throw new Error(`no kleeto tool server in ${home}/settings/cline_mcp_settings.json`);
+  }
+  kleeto.env = { ...(kleeto.env ?? {}), KLEETO_JOB_ID: jobId };
+  fsx.writeFileSync(file, JSON.stringify(cfg, null, 2), { mode: 0o600 });
+  return dir;
+}
+
 async function run(job) {
   log(`claimed ${job.id}`);
   await post(`/v1/jobs/${job.id}/report`, { state: "running" });
@@ -151,8 +183,20 @@ async function run(job) {
    */
   const spec = AGENTS[job.agent ?? "gpt-6-astra"] ?? AGENTS["gpt-6-astra"];
   const effort = job.effort ?? spec.defaultEffort;
+  let dataDir = null;
+  if (spec.runner === "cline") {
+    try { dataDir = clineDataDir(job.id); }
+    catch (e) {
+      await post(`/v1/jobs/${job.id}/report`, {
+        state: "failed", result: `the ${spec.label} runner could not be prepared: ${String(e.message).slice(0, 160)}`,
+      });
+      log(`${job.id} could not prepare cline settings: ${e.message}`);
+      return;
+    }
+  }
+  const forget = () => { if (dataDir) fsx.rmSync(dataDir, { recursive: true, force: true }); };
   const [cmd, args] = spec.runner === "cline"
-    ? ["cline", ["-P", "cline-pass", "-m", spec.model, "--json",
+    ? ["cline", ["-P", "cline-pass", "-m", spec.model, "--json", "--data-dir", dataDir,
                  // MiniMax has a toggle rather than levels, so "off" means no thinking flag
                  ...(effort === "off" ? [] : ["--thinking", effort === "on" ? "high" : effort]),
                  "-t", "2400", "-c", RUNS, preamble(job)]]
@@ -169,9 +213,9 @@ async function run(job) {
     const budget = setTimeout(() => {
       try { child.kill("SIGTERM"); } catch {}
     }, Number(process.env.JOB_BUDGET_MS ?? 45 * 60_000));
-    /* KLEETO_JOB_ID reaches the MCP server through codex/cline, which spawn it as a child:
-       it is how the agent's questions find the right page and how its payments find the
-       right ledger. */
+    /* KLEETO_JOB_ID is how the agent's questions find the right page and its payments the
+       right ledger. Codex gets it through the -c override above and Cline through its per-run
+       settings; the environment copy here is for anything that does inherit it. */
     const child = spawn(cmd, args, {
       cwd: RUNS,
       env: { ...process.env, KLEETO_JOB_ID: job.id },
@@ -182,6 +226,7 @@ async function run(job) {
     // never handled, the job sits in "running" for its full stale window, and it holds a slot
     // someone else is queued for.
     child.on("error", async (err) => {
+      forget();
       await post(`/v1/jobs/${job.id}/report`, {
         state: "failed",
         result: `the ${spec.label} runner could not start: ${String(err.message).slice(0, 160)}`,
@@ -208,6 +253,7 @@ async function run(job) {
     child.stderr.on("data", () => {});
     child.on("close", async (code) => {
       clearTimeout(budget);
+      forget();
       let summary = null;
       for (const l of buf.split("\n").reverse()) {
         try {

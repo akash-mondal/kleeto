@@ -97,6 +97,17 @@ export function ChatPanel({
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [run.messages.length, pending?.qid]);
 
+  /* An agent that never reached the person — its runner lost the thread, or it simply answered
+     instead of speaking through the tools — still finished with something to say. A run that
+     ends on the person's own words and nothing after them reads as a hang, so its final answer
+     is shown as the agent's last word. Only then: a run that did talk already said this. */
+  const lastUser = run.messages.map((m) => m.role).lastIndexOf("user");
+  const spokeAfter = run.messages.slice(lastUser + 1).some((m) => m.role === "agent");
+  const closing: RunMessage | null =
+    run.phase === "ended" && run.result && !spokeAfter
+      ? { role: "agent", kind: "note", text: run.result, at: (run.messages.at(-1)?.at ?? 0) + 1 }
+      : null;
+
   function send(text: string, approve = false) {
     if (!pending) return;
     if (!approve && !text.trim()) return;
@@ -133,6 +144,7 @@ export function ChatPanel({
             {run.messages.map((m, i) => (
               <Message key={`${m.at}-${i}`} m={m} />
             ))}
+            {closing ? <Message m={closing} /> : null}
             {run.phase === "scanning" && !pending ? <Working text="reading what Kleeto has" /> : null}
           </ol>
         </div>
