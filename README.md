@@ -68,6 +68,7 @@ node scripts/kleeto.mjs return <leaseId>                          # the meter st
 - [How it works](#how-it-works)
 - [Renting a computer, on the wire](#renting-a-computer-on-the-wire)
 - [Why Hedera](#why-hedera)
+- [Hedera, feature by feature](#hedera-feature-by-feature)
 - [The meter](#the-meter)
 - [Checking a bill yourself](#checking-a-bill-yourself)
 - [The live demo](#the-live-demo)
@@ -149,7 +150,7 @@ flowchart LR
     gw -- "verify, settle" --> fac["Blocky402<br/>x402 facilitator"]
     fac -- "submits, pays the fee" --> hedera[("Hedera")]
     gw -- "provision" --> fleet["Browsers · Linux machines · Desktops"]
-    gw -- "chain heads, HCS" --> hedera
+    gw -- "payments, heads, receipts on HCS" --> hedera
     fleet -. "live view" .-> you
     gw -- "files + SHA-256" --> agent
 ```
@@ -163,8 +164,9 @@ flowchart LR
   settled, so a plausible-looking header never buys a free computer.
 - **The live view** is Kleeto's own page on Kleeto's own origin, relaying frames over its own
   socket. The upstream endpoint is resolved server-side and never reaches a browser.
-- **The meter** debits the session once a second, hash-chains every tick, and publishes the
-  chain head to a Hedera Consensus Service topic. More [below](#the-meter).
+- **The meter** debits the session once a second and hash-chains every tick. Every payment, a
+  chain head each minute and a closing receipt go to a Hedera Consensus Service topic. More
+  [below](#the-meter).
 - **Files** the agent takes off a machine are recorded with their size and SHA-256 before it is
   handed back, so what reaches you is what the machine produced.
 
@@ -190,6 +192,7 @@ sequenceDiagram
     K->>F: verify, then settle
     F->>H: submit, facilitator pays the network fee
     H-->>K: SUCCESS
+    K->>H: payment record to the HCS topic
     K-->>A: credit on the session + HashScan link
     A->>K: POST /v1/leases { lane, image }
     K->>M: provision from the image
@@ -202,7 +205,7 @@ sequenceDiagram
     A->>K: POST /v1/leases/:id/deliver
     K-->>A: file + SHA-256
     A->>K: POST /v1/leases/:id/stop
-    K->>H: final chain head
+    K->>H: closing receipt: last head, total, payments
 ```
 
 ---
@@ -227,12 +230,28 @@ own, so every 402 offers both and the agent pays in whichever it holds.
 **The price comes from the ledger.** The HBAR rate is the mirror node's own
 `/network/exchangerate`. There is no third-party price feed to trust or to go stale.
 
-**The record of the seconds lives somewhere Kleeto can't edit.** Chain heads go to a
-Consensus Service topic whose submit key only the gateway holds. Consensus orders and
+**The record lives somewhere Kleeto can't edit.** Payments, chain heads and closing receipts go
+to a Consensus Service topic whose submit key only the gateway holds. Consensus orders and
 timestamps each message, and the public mirror node serves them to anyone, free, with no key.
 
 **Mainnet is a flag.** Every network-specific id (mirror, facilitator, USDC token, explorer)
 lives in one table in `src/networks.mjs`. `npm run net` resolves both networks today.
+
+---
+
+## Hedera, feature by feature
+
+Every row links to something a live agent did on testnet: GPT-6 Astra, through Codex, renting a
+machine on `api.kleeto.fun`, paying for it and handing it back.
+
+| Hedera feature | How Kleeto uses it | On the ledger |
+|---|---|---|
+| **x402 through Blocky402** | Every 402 is the `exact` scheme on `hedera:testnet`, verified and settled by the Blocky402 facilitator | [the agent's payment](https://hashscan.io/testnet/transaction/0.0.7162784-1789153547-123279951) |
+| **HTS token in the settlement path** | Agents pay in USDC, a Hedera Token Service token, or in HBAR. Every 402 offers both | [USDC `0.0.429274`](https://hashscan.io/testnet/token/0.0.429274) |
+| **Fee payer** | The facilitator pays the network fee, so the agent's balance moves by exactly the price | the fee line on [the same payment](https://hashscan.io/testnet/transaction/0.0.7162784-1789153547-123279951) |
+| **Metering, not a flat charge** | Credit is drawn down one second at a time, and every second is hash-chained to the one before | `GET /v1/leases/:id/proof` |
+| **Payment audit trail on HCS** | Every settlement, a chain head each minute, and a closing receipt with the total, on one topic | [topic `0.0.10454763`](https://hashscan.io/testnet/topic/0.0.10454763): [payment](https://hashscan.io/testnet/transaction/0.0.7284970-1789153555-918576967), [receipt](https://hashscan.io/testnet/transaction/0.0.7284970-1789153581-771917719) |
+| **Mirror node** | Prices come from its exchange rate, and anyone recomputes a bill from it with no key | [`/network/exchangerate`](https://testnet.mirrornode.hedera.com/api/v1/network/exchangerate) |
 
 ---
 
@@ -253,9 +272,9 @@ takes. So the agent pays into a balance and the meter draws it down one second a
   and the agent tops up.
 - **Running out pauses the machine and keeps its state.** The next top-up resumes it with its
   files and processes intact.
-- **The chain head is published.** Every 60 seconds, and once more when the lease is handed
-  back, the head goes to the topic. One message a minute instead of one a second, because a head
-  proves every second beneath it.
+- **It all goes on the record.** Every settled payment, the chain head every 60 seconds, and a
+  closing receipt with the total and the payments behind it go to the same topic. One head a
+  minute instead of one a second, because a head proves every second beneath it.
 
 ```mermaid
 stateDiagram-v2
@@ -263,7 +282,7 @@ stateDiagram-v2
     open --> open: tick, one second debited and chained
     open --> paused: balance reaches zero
     paused --> open: top-up settles
-    open --> closed: POST /stop, final head to the topic
+    open --> closed: POST /stop, receipt to the topic
     paused --> closed: POST /stop
     closed --> [*]
 ```
@@ -284,33 +303,41 @@ stateDiagram-v2
 
 ## Checking a bill yourself
 
-`GET /v1/leases/:id/proof` returns every second with its hash, the rule for recomputing them, and
-where each head landed on the ledger. This is a real lease on `api.kleeto.fun`, opened after the
-test agent paid a [USDC 402](https://hashscan.io/testnet/transaction/0.0.7162784-1789151802-027963126):
+`GET /v1/leases/:id/proof` returns every second with its hash, the payments that funded it, and
+where each record landed on the ledger. This is the lease the live demo agent rented, paid for
+and returned on `api.kleeto.fun`:
 
 ```json
 {
-  "leaseId": "ls_UgEORVjOD72i", "lane": "machine-1", "rateTinybar": 23061,
-  "genesis": "005b3f122c090d4fbc20cbee4872460ee19fff4f51a77a8181600133915e1df0",
-  "seconds": 8, "totalTinybar": 184488,
+  "leaseId": "ls_IqOn8TiBuBvI", "lane": "machine-1", "rateTinybar": 23309,
+  "seconds": 21, "totalTinybar": 489489,
   "selfCheck": { "ok": true },
   "hcsTopic": "0.0.10454763",
   "howToVerify": "sha256(prev|seq|leaseId|tinybar|at) for each tick, starting from genesis",
-  "anchors": [
-    { "seq": 8, "head": "c6a453491c62c72d…", "final": true, "topicSequence": 4,
-      "transaction": "0.0.7284970@1789151815.309945849" }
+  "payments": [
+    { "tinybar": 4195620, "asset": "USDC", "transaction": "0.0.7162784@1789153547.123279951",
+      "audit": { "topicSequence": 8, "transaction": "0.0.7284970@1789153555.918576967" } }
   ],
-  "ticks": [ { "seq": 1, "tinybar": 23061, "at": "2026-09-11T18:36:54.463Z", "hash": "193aa80c7930bb88…" } ]
+  "anchors": [
+    { "seq": 21, "head": "227c4a19d310c70e…", "final": true, "topicSequence": 9,
+      "transaction": "0.0.7284970@1789153581.771917719" }
+  ],
+  "ticks": [ "…" ]
 }
 ```
 
-The same head, as the ledger holds it: message
-[#4](https://hashscan.io/testnet/transaction/0.0.7284970-1789151815-309945849) on topic
-[`0.0.10454763`](https://hashscan.io/testnet/topic/0.0.10454763):
+The same lease, as the ledger holds it on topic
+[`0.0.10454763`](https://hashscan.io/testnet/topic/0.0.10454763): the
+[payment](https://hashscan.io/testnet/transaction/0.0.7284970-1789153555-918576967), then the
+[receipt](https://hashscan.io/testnet/transaction/0.0.7284970-1789153581-771917719).
 
 ```json
-{"t":"kleeto/anchor","v":1,"lease":"ls_UgEORVjOD72i","lane":"machine-1","rate":23061,"seq":8,
- "head":"c6a453491c62c72d9f99d802615d80d05d3cae2cf92ef95e0ce3f9d2f5588eeb","at":"2026-09-11T18:37:01.538Z","final":true}
+{"t":"kleeto/payment","v":1,"session":"ss_c1FfUaWy9yre","asset":"USDC","assetId":"0.0.429274","amount":"3136",
+ "credit":4195620,"payTo":"0.0.7284970","payer":"0.0.10454764",
+ "transaction":"0.0.7162784@1789153547.123279951","at":"2026-09-11T19:05:59.034Z"}
+{"t":"kleeto/receipt","v":1,"lease":"ls_IqOn8TiBuBvI","lane":"machine-1","rate":23309,"seq":21,
+ "head":"227c4a19d310c70ea46cbe4ea3982ac61e26a03ab788d82a62c2cbcbdf8ec661","at":"2026-09-11T19:06:26.360Z",
+ "total":489489,"payments":["0.0.7162784@1789153547.123279951"]}
 ```
 
 To check a bill without asking Kleeto for anything:
@@ -330,7 +357,7 @@ for (const m of messages) {
   const a = JSON.parse(Buffer.from(m.message, "base64"));
   if (a.lease === proof.leaseId) console.log(a.seq, heads.get(a.seq) === a.head ? "matches the ledger" : "DOES NOT MATCH");
 }
-// rate × seconds is the bill: 23061 × 8 = 184,488 tinybar
+// rate × seconds is the bill: 23309 × 21 = 489,489 tinybar
 ```
 
 ---
@@ -412,9 +439,9 @@ Base URL `https://api.kleeto.fun`. The two routes marked 402 are where money mov
 | | `GET` | `/v1/leases/:id/actions` | the verbs this machine accepts |
 | | `POST` | `/v1/leases/:id/control` | drive it: open, click, type, press, scroll, exec, read, write, navigate |
 | | `POST` | `/v1/leases/:id/deliver` | take a file off the machine, recorded with its SHA-256 |
-| | `POST` | `/v1/leases/:id/stop` | hand it back; the meter stops and the final head is published |
+| | `POST` | `/v1/leases/:id/stop` | hand it back; the meter stops and the closing receipt is published |
 | **Verify** | `GET` | `/v1/leases/:id/meter` | the meter, as server-sent events |
-| | `GET` | `/v1/leases/:id/proof` | every second, its hash, and its anchors on the topic |
+| | `GET` | `/v1/leases/:id/proof` | every second, its hash, its payments, and where each record landed on the topic |
 | **Watch** | `GET` | `/live/:token` | the live view |
 | **Demo** | `POST` | `/v1/jobs` | queue a task for a hosted agent |
 | | `GET` | `/v1/jobs/:id/stream` | its thread, meter and payments as they happen |

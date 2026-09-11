@@ -87,11 +87,13 @@ for (const e of ["open", "tick", "low", "exhausted", "anchor", "paid", "closed"]
  * messages to check, and the meter stream announces each one as it lands. A refused write is
  * logged and left: the ticks are on disk, and the next head covers every second this one did.
  */
-const anchoredTo = new Map();   // leaseId -> highest seq sent, including writes still in flight
+const anchoredTo = new Map();   // leaseId -> highest periodic seq sent, including writes in flight
+const receipted = new Set();    // leases whose closing receipt has been sent
 function writeAnchor(a) {
   const lease = store.get(a.leaseId);
-  if (!hcs || !lease || a.seq <= (anchoredTo.get(a.leaseId) ?? 0)) return;
-  anchoredTo.set(a.leaseId, a.seq);
+  if (!hcs || !lease) return;
+  if (a.final ? receipted.has(a.leaseId) : a.seq <= (anchoredTo.get(a.leaseId) ?? 0)) return;
+  if (a.final) receipted.add(a.leaseId); else anchoredTo.set(a.leaseId, a.seq);
   hcs.anchor({ ...a, lane: lease.lane, rateTinybar: lease.creditTinybar })
     .then((landed) => {
       const l = store.get(a.leaseId);
@@ -99,6 +101,20 @@ function writeAnchor(a) {
       fanout("anchored", { leaseId: a.leaseId, topic: hcs.topic, ...landed });
     })
     .catch((e) => console.error(`anchor ${a.leaseId} #${a.seq} was not published: ${e.message}`));
+}
+
+/**
+ * Publish a settled payment, beside the seconds it paid for.
+ *
+ * The transfer is already on the ledger; what the topic adds is what it bought: which session
+ * or lease it credited, and with how much. The entry it describes keeps the message's address,
+ * so a proof can point straight at it.
+ */
+function auditPayment(entry, fields) {
+  if (!hcs || !fields.transaction) return;
+  hcs.publish({ t: "kleeto/payment", v: 1, ...fields, at: new Date().toISOString() })
+    .then((landed) => { if (entry) entry.audit = landed; })
+    .catch((e) => console.error(`payment ${fields.transaction} was not published: ${e.message}`));
 }
 
 /**
@@ -253,6 +269,11 @@ app.post("/v1/sessions/:id/topup", async (c) => {
   }
   const txId = settled.body?.transaction ?? settled.body?.transactionId ?? null;
   const balance = s.credit(tinybar, { transaction: txId, asset: requirements.extra?.symbol });
+  auditPayment(s.topUps.at(-1), {
+    session: s.id, asset: requirements.extra?.symbol ?? null, assetId: requirements.asset,
+    amount: requirements.amount, credit: tinybar, payTo: PAY_TO,
+    payer: settled.body?.payer ?? null, transaction: txId,
+  });
 
   // tell every open lease on this session that money landed, so a watching UI can show it
   for (const l of store.all().filter((x) => x.sessionId === s.id && x.state !== "closed")) {
@@ -563,6 +584,8 @@ app.get("/v1/leases/:id/proof", (c) => {
     hcsTopic: hcs?.topic ?? null,
     howToVerify: "sha256(prev|seq|leaseId|tinybar|at) for each tick, starting from genesis",
     anchors: lease.anchors ?? [],
+    payments: (meter.sessions.get(lease.sessionId ?? lease.id)?.topUps ?? [])
+      .map(({ tinybar, asset, transaction, audit }) => ({ tinybar, asset, transaction, audit: audit ?? null })),
     verifyOnLedger: hcs
       ? `${net.mirror}/api/v1/topics/${hcs.topic}/messages: every anchor's head must equal the recomputed hash at its seq`
       : null,
@@ -605,6 +628,7 @@ app.post("/v1/leases", async (c) => {
    */
   const sessionId = body.sessionId ? String(body.sessionId) : null;
   let txId = null;
+  let payer = null;
   let requirements = null;
 
   if (sessionId) {
@@ -641,6 +665,7 @@ app.post("/v1/leases", async (c) => {
       return challenge402(c, challenge, { error: "settlement failed", reason: settled.body?.errorReason ?? settled.body });
     }
     txId = settled.body?.transaction ?? settled.body?.txHash ?? settled.body?.transactionId ?? null;
+    payer = settled.body?.payer ?? null;
   }
 
   // paid: now it is safe to spend upstream
@@ -679,7 +704,14 @@ app.post("/v1/leases", async (c) => {
   live.set(lease.id, up.handle);
   // A session-funded lease is metered from here; a prepaid one is credited its block first so
   // the same tick loop, and the same hash chain, covers both.
-  if (!sessionId) meter.session(lease.id).credit(tinybar, { transaction: txId, asset: requirements?.extra?.symbol });
+  if (!sessionId) {
+    const prepaid = meter.session(lease.id);
+    prepaid.credit(tinybar, { transaction: txId, asset: requirements?.extra?.symbol });
+    auditPayment(prepaid.topUps.at(-1), {
+      lease: lease.id, lane: lease.lane, asset: requirements?.extra?.symbol ?? null, assetId: requirements?.asset,
+      amount: requirements?.amount, credit: tinybar, payTo: PAY_TO, payer, transaction: txId,
+    });
+  }
   meter.start({ ...lease, sessionId: sessionId ?? lease.id });
 
   const out = publicView(lease, { origin: ORIGIN });
@@ -734,9 +766,12 @@ app.post("/v1/leases/:id/stop", async (c) => {
     ...(fin.mb ? { mbUsed: fin.mb } : {}),
   });
   live.delete(l.id);
-  // the last head is published too, or a lease handed back inside a minute would never reach the topic
-  if (proof?.seconds > (l.anchors?.at(-1)?.seq ?? 0)) {
-    writeAnchor({ leaseId: l.id, seq: proof.seconds, head: proof.chainHead, at: new Date().toISOString(), final: true });
+  // the closing receipt: the last head, what the lease came to, and the payments that funded it
+  if (proof?.seconds) {
+    const funding = meter.sessions.get(l.sessionId ?? l.id)?.topUps ?? [];
+    writeAnchor({ leaseId: l.id, seq: proof.seconds, head: proof.chainHead, at: new Date().toISOString(), final: true,
+                  totalTinybar: proof.totalTinybar,
+                  payments: funding.map((t) => t.transaction).filter((t) => t && t !== "dev-credit").slice(-8) });
   }
   /**
    * A returned machine is not the run's machine any more — but the run may still hold another.
