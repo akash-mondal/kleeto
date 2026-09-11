@@ -129,8 +129,8 @@ export function Composer({
           What should the agent do?
         </h1>
         <p className="mt-3 max-w-[46ch] text-center text-[14px] leading-[1.6] text-white/45">
-          It rents the computer it needs and pays for it by the second, from its own wallet.
-          You are watching the meter, not a simulation.
+          Give it a task that needs a real computer. It picks a desktop or a browser, pays from
+          its own wallet, and you watch it work, second by second.
         </p>
       </div>
 
