@@ -274,29 +274,32 @@ stateDiagram-v2
 ## Checking a bill yourself
 
 `GET /v1/leases/:id/proof` returns every second with its hash, the rule for recomputing them, and
-where each head landed on the ledger:
+where each head landed on the ledger. This is a real lease on `api.kleeto.fun`, opened after the
+test agent paid a [USDC 402](https://hashscan.io/testnet/transaction/0.0.7162784-1789151802-027963126):
 
 ```json
 {
-  "leaseId": "ls_JSft3s2sbdM5", "lane": "machine-1", "rateTinybar": 23061,
-  "genesis": "f79f6cb15d85f870f045d348…", "seconds": 10, "totalTinybar": 230610,
+  "leaseId": "ls_UgEORVjOD72i", "lane": "machine-1", "rateTinybar": 23061,
+  "genesis": "005b3f122c090d4fbc20cbee4872460ee19fff4f51a77a8181600133915e1df0",
+  "seconds": 8, "totalTinybar": 184488,
   "selfCheck": { "ok": true },
   "hcsTopic": "0.0.10454763",
   "howToVerify": "sha256(prev|seq|leaseId|tinybar|at) for each tick, starting from genesis",
   "anchors": [
-    { "seq": 5,  "topicSequence": 1, "transaction": "0.0.7284970@1789150978.633708319" },
-    { "seq": 10, "topicSequence": 3, "transaction": "0.0.7284970@1789150983.302939618", "final": true }
+    { "seq": 8, "head": "c6a453491c62c72d…", "final": true, "topicSequence": 4,
+      "transaction": "0.0.7284970@1789151815.309945849" }
   ],
-  "ticks": [ { "seq": 1, "tinybar": 23061, "at": "2026-09-11T18:22:59.675Z", "hash": "5d405989c60d91eb…" } ]
+  "ticks": [ { "seq": 1, "tinybar": 23061, "at": "2026-09-11T18:36:54.463Z", "hash": "193aa80c7930bb88…" } ]
 }
 ```
 
-The same heads, as the ledger holds them on topic
+The same head, as the ledger holds it: message
+[#4](https://hashscan.io/testnet/transaction/0.0.7284970-1789151815-309945849) on topic
 [`0.0.10454763`](https://hashscan.io/testnet/topic/0.0.10454763):
 
 ```json
-{"t":"kleeto/anchor","v":1,"lease":"ls_JSft3s2sbdM5","lane":"machine-1","rate":23061,"seq":5,
- "head":"e08822d481fac2402f6e245a0de93838317cb17a51095176605c56a6d7738d50","at":"2026-09-11T18:23:03.678Z"}
+{"t":"kleeto/anchor","v":1,"lease":"ls_UgEORVjOD72i","lane":"machine-1","rate":23061,"seq":8,
+ "head":"c6a453491c62c72d9f99d802615d80d05d3cae2cf92ef95e0ce3f9d2f5588eeb","at":"2026-09-11T18:37:01.538Z","final":true}
 ```
 
 To check a bill without asking Kleeto for anything:
@@ -316,7 +319,7 @@ for (const m of messages) {
   const a = JSON.parse(Buffer.from(m.message, "base64"));
   if (a.lease === proof.leaseId) console.log(a.seq, heads.get(a.seq) === a.head ? "matches the ledger" : "DOES NOT MATCH");
 }
-// rate × seconds is the bill: 23061 × 10 = 230,610 tinybar
+// rate × seconds is the bill: 23061 × 8 = 184,488 tinybar
 ```
 
 ---
@@ -437,8 +440,8 @@ landing/       kleeto.fun: the site and the live demo (Next.js)
 
 - **Testnet.** Mainnet is `HEDERA_NETWORK=mainnet` and resolves today, but has not been run with
   real money.
-- **Anchoring is new.** Leases metered before the topic writer shipped, including the job above,
-  have their full chain at `/proof` but no messages on the topic.
+- **Anchoring is new.** It is live on `api.kleeto.fun`, but leases metered before it shipped,
+  including the job above, have their full chain at `/proof` and no messages on the topic.
 - **Credit is not refunded.** Unused credit stays on the session for the next lease, so the skill
   buys three minutes at a time rather than an hour.
 - **`browser-max` has a bandwidth ceiling.** Its cost is almost all residential proxy traffic, so
