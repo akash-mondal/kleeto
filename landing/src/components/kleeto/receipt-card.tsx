@@ -9,21 +9,20 @@ import { cn } from "@/lib/utils";
 
 type Row = { label: string; value: string; accent?: boolean };
 
+/** A real lease on the live gateway, paid over x402 in USDC and anchored to the topic. */
 const ROWS: readonly Row[] = [
-  { label: "lease", value: "ls_9k2m…" },
-  { label: "lane", value: "desktop-2" },
-  { label: "started", value: "2026-09-04 10:21:15Z" },
-  { label: "seconds", value: "252" },
-  { label: "rate", value: "53000 tinybar/s" },
-  { label: "credits used", value: "252" },
-  { label: "tinybar", value: "13,356,000" },
-  { label: "USD", value: "$0.0104" },
-  { label: "refunded", value: "3,120 credits" },
+  { label: "lease", value: "ls_UgEORVjOD72i" },
+  { label: "lane", value: "machine-1" },
+  { label: "first tick", value: "2026-09-11 18:36:54Z" },
+  { label: "seconds", value: "8" },
+  { label: "rate", value: "23,061 tinybar/s" },
+  { label: "tinybar", value: "184,488" },
+  { label: "paid in", value: "USDC over x402" },
 ];
 
 const PROOF: readonly Row[] = [
-  { label: "files out", value: "3" },
-  { label: "root", value: "7f3a9c…e2c19e", accent: true },
+  { label: "genesis", value: "005b3f…5e1df0" },
+  { label: "chain head", value: "c6a453…588eeb", accent: true },
 ];
 
 const PERFORATION: CSSProperties = {
@@ -78,12 +77,12 @@ export function ReceiptCard({ className }: { className?: string }) {
           <ReceiptRow key={row.label} row={row} />
         ))}
       </dl>
-      <p className="mt-2 text-kl-muted">hcs topic 0.0.7181234 · seq 1204</p>
+      <p className="mt-2 text-kl-muted">hcs topic 0.0.10454763 · seq 4</p>
 
       <Dashed />
 
       <p className="text-[11px] leading-[1.6] break-all text-kl-muted">
-        kid did:hedera:testnet:z6Mk…#key-1 · ES256K
+        each second: sha256(prev|seq|leaseId|tinybar|at)
       </p>
     </div>
   );

@@ -6,16 +6,16 @@ import { ReceiptCard } from "./receipt-card";
 
 const STEPS: readonly { title: string; body: string }[] = [
   {
+    title: "Recompute the chain",
+    body: "The proof lists every second the machine ran. Hash each one over the one before it, starting from the genesis. Rate times seconds is the bill.",
+  },
+  {
     title: "Read the topic from the mirror node",
-    body: "The receipt names the HCS topic. Hedera's mirror node serves its messages to anyone, with no key and no account.",
+    body: "The proof names the HCS topic. Hedera's mirror node serves its messages to anyone, with no key and no account.",
   },
   {
-    title: "Add up the checkpoints",
-    body: "One message per second the machine ran, each carrying the credits charged and the hash of the one before it.",
-  },
-  {
-    title: "Hash the files it produced",
-    body: "Recompute the merkle root over the artefacts and compare it to the root the receipt was signed over.",
+    title: "Match the heads",
+    body: "Every head on the topic must equal your hash at that second. Change one second anywhere and none of them do.",
   },
 ];
 
@@ -24,7 +24,7 @@ export function KleetoReceipt() {
     <section id="receipt" className="kl-ground py-20 md:py-28">
       <Container>
         <SectionHeading
-          lede="Every second the machine runs is a hash-chained checkpoint on a public topic, and every file it produced is hashed into the same receipt. Anyone can recompute the bill from Hedera's mirror node. No key, no account, nothing to ask us for."
+          lede="Every second the machine runs is a hash-chained checkpoint, and the head of that chain is written to a public Hedera topic every minute and when the machine is handed back. Anyone can recompute the bill from Hedera's mirror node. No key, no account, nothing to ask us for."
         >
           The bill is <BoxedWord>on a public ledger.</BoxedWord>
         </SectionHeading>
@@ -33,9 +33,9 @@ export function KleetoReceipt() {
         <Reveal delayMs={60} className="mt-10">
           <dl className="grid gap-px overflow-hidden rounded-[18px] border border-kl-line bg-kl-line sm:grid-cols-3">
             {[
-              ["written to", "HCS topic 0.0.7181234", "one message per checkpoint, $0.0001 each"],
+              ["written to", "HCS topic 0.0.10454763", "a chain head every minute and at close, about $0.00025 each"],
               ["settled in", "HBAR or USDC", "on Hedera, final in seconds, fees quoted in USD"],
-              ["signed with", "did:hedera · ES256K", "the receipt verifies without us"],
+              ["recomputed from", "GET /v1/leases/:id/proof", "every second's hash, checked against the topic"],
             ].map(([label, value, note]) => (
               <div key={label} className="bg-[var(--kl-ground)] px-6 py-5">
                 <dt className="kl-num text-[11px] tracking-[0.16em] text-kl-muted uppercase">{label}</dt>
@@ -73,7 +73,7 @@ export function KleetoReceipt() {
             </div>
             <div className="flex items-center justify-between gap-4 border-t border-kl-line pt-4">
               <p className="max-w-[40ch] text-[13px] leading-[1.6] text-kl-muted">
-                The mirror node is public, and the receipt carries the topic it wrote to.
+                The mirror node is public, and the proof carries the topic it wrote to.
               </p>
               <RailRow className="shrink-0" />
             </div>

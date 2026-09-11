@@ -14,17 +14,13 @@ over [x402](https://x402.org) on [Hedera](https://hedera.com).**
 
 **[kleeto.fun](https://kleeto.fun)**: watch an agent rent one, live
 
-```sh
-npx skills add akash-mondal/kleeto-skill
-```
-
 </div>
 
-![An agent's rented desktop on Kleeto](./landing/public/images/kleeto/show-blender.jpg)
+![An agent working on its rented Kleeto desktop: a browser, a spreadsheet, a terminal and a PDF in one view, with its reasoning on screen](./assets/hero.jpg)
 
-Agents can carry a task for hours now. What they still don't have is a computer. Ask one to
-model a part in FreeCAD, get past a site that blocks bots, or render a scene in Blender, and it
-borrows yours: your screen, your logins, your laptop left open until it's done.
+Agents can carry a task for hours now. What they still don't have is a computer. When a job needs
+a real browser session, a desktop application with no API, or a clean machine to run code on, the
+agent borrows yours: your screen, your logins, your laptop left open until it's done.
 
 **Kleeto is where an agent rents its own.** A real browser, a clean Linux machine, or a full
 desktop with the applications already installed, up in seconds. There is no account to create,
@@ -33,22 +29,40 @@ no API key to paste and no card on file. The agent asks for a machine, Kleeto an
 gave it, in USDC or HBAR. You get a link to watch it work. When the job is done it hands the
 machine back, and everything it made comes home with a SHA-256 beside it.
 
-It works with the agent you already use. One command installs Kleeto as a skill into Claude
-Code, Codex, Cursor, or any agent that reads skills:
+### Give your agent a computer
+
+Kleeto ships as an agent **skill**: a folder of instructions plus a small command-line tool that
+coding agents load when a task calls for it. One command installs it, through the
+[skills.sh](https://skills.sh) installer, into Claude Code, Codex, Cursor and other agents that
+support skills:
 
 ```sh
-node scripts/kleeto.mjs discover                                   # lanes, prices, desktop images
-node scripts/kleeto.mjs topup --lane desktop-4 --seconds 180       # 402 -> sign -> settle, from your wallet
-node scripts/kleeto.mjs rent --lane desktop-4 --image studio       # Blender, Scribus, darktable, Kdenlive
-node scripts/kleeto.mjs do <leaseId> open --app blender            # click, type, exec, screenshot...
-node scripts/kleeto.mjs pull <leaseId> /work/out/render.png ./render.png
-node scripts/kleeto.mjs return <leaseId>                           # the meter stops
+npx skills add akash-mondal/kleeto-skill
+```
+
+Then give the agent a Hedera wallet to pay from, by setting `KLEETO_ACCOUNT_ID` and
+`KLEETO_PRIVATE_KEY` in its environment. A free testnet account from
+[portal.hedera.com](https://portal.hedera.com) is enough to start.
+
+That's the whole setup. Ask the agent for anything that needs a computer: it reads the catalogue,
+tells you which machine it wants, for roughly how long and what that costs, and waits for your OK
+before it pays. Under the hood the skill runs steps like these
+([source](https://github.com/akash-mondal/kleeto-skill)):
+
+```sh
+node scripts/kleeto.mjs discover                                  # every lane, price and desktop image
+node scripts/kleeto.mjs topup --lane desktop-4 --seconds 180      # answers the 402 from your wallet
+node scripts/kleeto.mjs rent --lane desktop-4 --image base        # a lease id and a live view link
+node scripts/kleeto.mjs do <leaseId> screenshot                   # then open, click, type, exec...
+node scripts/kleeto.mjs pull <leaseId> /work/out/report.pdf ./report.pdf
+node scripts/kleeto.mjs return <leaseId>                          # the meter stops
 ```
 
 ---
 
 ## Contents
 
+- [Give your agent a computer](#give-your-agent-a-computer)
 - [What an agent can rent](#what-an-agent-can-rent)
 - [One job, start to finish](#one-job-start-to-finish)
 - [How it works](#how-it-works)
@@ -60,7 +74,6 @@ node scripts/kleeto.mjs return <leaseId>                           # the meter s
 - [Run it yourself](#run-it-yourself)
 - [API](#api)
 - [Repository layout](#repository-layout)
-- [Status and known limits](#status-and-known-limits)
 
 ---
 
@@ -95,12 +108,10 @@ numbers.
 
 ## One job, start to finish
 
-The run recorded for the demo, on testnet. One prompt to one agent:
-
-> I sell 3D-printed cable organizers on Etsy. Check the top 5 best-selling cable organizers
-> there (price, rating, reviews). Then design my new version in FreeCAD with five slots for
-> USB-C cables, render a clean product shot in Blender, and make a one-page spec sheet PDF with
-> the render and a price comparison table. Send me the STL too.
+The run recorded for the demo, on testnet. One prompt to one agent: research the best-selling
+products on a marketplace that blocks bots, design a better version, render a product shot, and
+deliver a one-page spec sheet with a price comparison. Four kinds of work, and none of them
+possible from inside a chat window.
 
 The agent (GPT-6 Astra through Codex) asked what it needed to know, proposed a plan with a
 price, waited for a yes, and then did this. Every payment is a USDC transfer from the agent's own account
@@ -109,17 +120,17 @@ price, waited for a yes, and then did this. Every payment is a USDC transfer fro
 
 | # | What happened | Paid | On Hedera |
 |---|---|---:|---|
-| 1 | Buys credit for a browser and opens Etsy on `browser-fast`. Etsy blocks it, so it hands the browser back | 0.005501 USDC | [CRYPTOTRANSFER](https://hashscan.io/testnet/transaction/0.0.7162784-1789134582-137739105) |
+| 1 | Buys credit for a browser and opens the marketplace on `browser-fast`. The site blocks it, so it hands the browser back | 0.005501 USDC | [CRYPTOTRANSFER](https://hashscan.io/testnet/transaction/0.0.7162784-1789134582-137739105) |
 | 2 | Escalates to `browser-max`, gets past the bot wall and reads the best-selling listings | 0.081667 USDC | [CRYPTOTRANSFER](https://hashscan.io/testnet/transaction/0.0.7162784-1789134629-196804413) |
 | 3 | Tops the same stealth browser up mid-lease instead of starting over, finishes, hands it back | 0.081667 USDC | [CRYPTOTRANSFER](https://hashscan.io/testnet/transaction/0.0.7162784-1789134794-963904561) |
-| 4 | Rents `desktop-4` on the `engineering` image and models the organizer in FreeCAD. Takes the STL and the `.FCStd` off, hands it back | 0.013641 USDC | [CRYPTOTRANSFER](https://hashscan.io/testnet/transaction/0.0.7162784-1789134826-675675371) |
-| 5 | Rents `desktop-4` on `studio` and builds the product scene in Blender | 0.013641 USDC | [CRYPTOTRANSFER](https://hashscan.io/testnet/transaction/0.0.7162784-1789135048-633834405) |
+| 4 | Rents `desktop-4` on the `engineering` image and designs the part in a CAD application. Takes the model files off, hands it back | 0.013641 USDC | [CRYPTOTRANSFER](https://hashscan.io/testnet/transaction/0.0.7162784-1789134826-675675371) |
+| 5 | Rents `desktop-4` on `studio` and sets up the product scene in a 3D application | 0.013641 USDC | [CRYPTOTRANSFER](https://hashscan.io/testnet/transaction/0.0.7162784-1789135048-633834405) |
 | 6 | Rents a `machine-8` beside it for the render, takes the PNG off, hands it back | 0.025611 USDC | [CRYPTOTRANSFER](https://hashscan.io/testnet/transaction/0.0.7162784-1789135819-364538460) |
-| 7 | Tops the studio desktop up, lays the spec sheet out in Scribus, takes the PDF off, hands it back | 0.013929 USDC | [CRYPTOTRANSFER](https://hashscan.io/testnet/transaction/0.0.7162784-1789136263-088772439) |
+| 7 | Tops the studio desktop up, lays the spec sheet out, takes the PDF off, hands it back | 0.013929 USDC | [CRYPTOTRANSFER](https://hashscan.io/testnet/transaction/0.0.7162784-1789136263-088772439) |
 
 **Five machines, three kinds, 0.2357 USDC.** Six files came home, each recorded with its hash:
-`FIVE-120.stl`, `FIVE-120.FreeCAD.FCStd`, `FIVE-120.blend`, `FIVE-120-product.png`,
-`FIVE-120-spec.pdf` and `FIVE-120-Etsy-comparison.csv`.
+the printable model and its CAD source, the 3D scene, the product render, the spec sheet PDF and
+the price comparison as CSV.
 
 Look at the fee line on any of those transactions. The network fee, about 0.0149 ℏ each time,
 was paid by [`0.0.7162784`](https://hashscan.io/testnet/account/0.0.7162784), the facilitator.
@@ -434,23 +445,3 @@ deploy/        the VM and the headless agent host behind the demo
 landing/       kleeto.fun: the site and the live demo (Next.js)
 ```
 
----
-
-## Status and known limits
-
-- **Testnet.** Mainnet is `HEDERA_NETWORK=mainnet` and resolves today, but has not been run with
-  real money.
-- **Anchoring is new.** It is live on `api.kleeto.fun`, but leases metered before it shipped,
-  including the job above, have their full chain at `/proof` and no messages on the topic.
-- **Credit is not refunded.** Unused credit stays on the session for the next lease, so the skill
-  buys three minutes at a time rather than an hour.
-- **`browser-max` has a bandwidth ceiling.** Its cost is almost all residential proxy traffic, so
-  a lease stops at 250 MB and the quote assumes that budget.
-- **Desktops take about 45 seconds** to boot from an image.
-- **The bill is a chain, not a signature.** There is no signed receipt yet; the proof is the
-  ticks, the recomputation and the heads on the topic.
-
-The site under `landing/` started from the MIT-licensed
-[ai-website-cloner-template](https://github.com/JCodesMore/ai-website-cloner-template) scaffold.
-
-MIT © Akash Mondal

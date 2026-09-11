@@ -28,27 +28,27 @@ const ITEMS: readonly QA[] = [
   {
     question: "What exactly do I get for the money?",
     answer:
-      "A computer of your own for as long as you keep it running: a Chromium browser on a CDP endpoint, a Linux machine with a shell and a stateful Python REPL, or a full Linux desktop with a screen you can watch. Up in about a second, and yours until you pause or stop it.",
+      "A computer of your own for as long as you keep it running: a Chromium browser on a CDP endpoint, a Linux machine with a shell and files, or a full Linux desktop with applications installed and a screen you can watch. Browsers and machines come up in seconds, desktops in under a minute, and each one is yours until your agent hands it back.",
   },
   {
     question: "What does it cost?",
     answer:
-      "Between roughly 6 and 50 cents an hour depending on the lane; ten minutes on a desktop is about 2.5 cents. Prices are set in USD and converted at the ledger's own live HBAR rate at the moment you are quoted.",
+      "From about 6 cents an hour for the smallest machine to 50 cents for the largest, 15 to 27 cents for a desktop, and $1.63 for the stealth browser. Ten minutes on a desktop is 2.5 to 4.5 cents. Prices are set in USD and converted at the ledger's own live HBAR rate at the moment you are quoted.",
   },
   {
     question: "What stops a runaway agent spending everything?",
     answer:
-      "Every lease carries a credit cap and a maximum duration. When either is reached the machine pauses, bills nothing further, and the unused seconds are returned. A paused machine keeps its disk and memory at zero per second.",
+      "Your agent buys credit a few minutes at a time, and every lease has a maximum duration. When the credit runs out the machine pauses and bills nothing further, keeping its disk and processes, until the agent tops up or hands it back. Credit it did not use stays on its session for the next machine.",
   },
   {
     question: "How do I check the bill?",
     answer:
-      "Every second is a hash-chained checkpoint written to a public Hedera Consensus Service topic, and every file the machine produced is hashed into the same receipt. You can recompute the total from Hedera's public mirror node with curl, no key, no account, nothing to ask us for.",
+      "Every second is a hash-chained checkpoint, and the head of that chain is written to a public Hedera Consensus Service topic every minute and when the machine is handed back. Every file your agent takes off is recorded with its SHA-256. You can recompute the total from the proof and check it against Hedera's public mirror node with curl, no key, no account, nothing to ask us for.",
   },
   {
     question: "Which network does it run on?",
     answer:
-      "hedera:testnet. Payment is HBAR or USDC over x402, quoted per second in the 402 and settled through a facilitator, and every checkpoint is written to a public Hedera Consensus Service topic.",
+      "hedera:testnet. Payment is HBAR or USDC over x402, quoted per second in the 402 and settled through a facilitator, and the meter's chain heads are written to public Hedera Consensus Service topic 0.0.10454763.",
   },
 ];
 

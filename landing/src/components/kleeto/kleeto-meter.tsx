@@ -22,7 +22,7 @@ type Move = {
 
 const MOVES: readonly Move[] = [
   {
-    code: "GET /lease?lane=desktop-2",
+    code: "POST /v1/leases { lane: desktop-2 }",
     title: "The agent asks for a machine",
     body: "No account, no key, no card. Just a request for a lane.",
   },
@@ -41,28 +41,27 @@ const MOVES: readonly Move[] = [
   {
     code: "200 OK · lease open",
     title: "Hedera settles and the meter starts",
-    body: "Final in seconds, at fees quoted in USD. The meter stops the moment your agent pauses, and the unused seconds come back.",
+    body: "Final in seconds, at fees quoted in USD. The meter charges every second the machine is held, and stops the moment your agent hands it back.",
     marks: ["hedera"],
   },
 ];
 
 const LINES: readonly TerminalLine[] = [
-  { text: "$ kleeto lease desktop-2", tone: "prompt", phase: "running" },
-  { text: "402 · 98,000 tinybar/s · HBAR or USDC · hedera:testnet", tone: "info", phase: "running" },
-  { text: "signed · agent 0.0.7162784 · fee payer 0.0.7162784", tone: "info", phase: "running" },
-  { text: "up in 0.81 s · meter running", tone: "ok", phase: "running" },
-  { text: "$ kleeto pause", tone: "prompt", phase: "paused" },
-  { text: "meter stopped · 0 credits/s", tone: "info", phase: "paused" },
-  { text: "unused seconds refunded", tone: "ok", phase: "paused" },
+  { text: "$ kleeto rent desktop-2", tone: "prompt", phase: "running" },
+  { text: "402 · 54,213 tinybar/s · HBAR or USDC · hedera:testnet", tone: "info", phase: "running" },
+  { text: "signed · agent 0.0.10454764 · fee payer 0.0.7162784", tone: "info", phase: "running" },
+  { text: "desktop up · meter running", tone: "ok", phase: "running" },
+  { text: "balance at zero · meter paused", tone: "info", phase: "paused" },
+  { text: "disk and processes kept", tone: "ok", phase: "paused" },
 ];
 
 const STATES: readonly TerminalState[] = [
   { phase: "running", note: "Counting seconds" },
-  { phase: "paused", note: "Meter stopped" },
-  { phase: "resuming", note: "Unused seconds returned" },
+  { phase: "paused", note: "Credit spent, machine kept" },
+  { phase: "resuming", note: "Top-up settled, meter back on" },
 ];
 
-const LABELS = { running: "RUNNING", paused: "PAUSED", resuming: "REFUNDED" } as const;
+const LABELS = { running: "RUNNING", paused: "PAUSED", resuming: "RESUMED" } as const;
 
 export function KleetoMeter() {
   return (
