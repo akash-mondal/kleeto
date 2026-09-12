@@ -72,23 +72,27 @@ offers in a 402 are always worth the same. Live numbers are at `GET /v1/lanes`.
 One prompt, on testnet: research the best-selling products on a marketplace that blocks bots,
 design a better version, render a product shot, and deliver a one-page spec sheet with a price
 comparison. The agent, GPT-6 Astra through Codex, asked what it needed to know, proposed a plan
-with a price, waited for a yes, then used five machines.
+with a price, waited for a yes, then used five machines and paid for each of them itself.
 
-| # | What it did | Paid |
-|---|---|---|
-| 1 | Opened the marketplace on `browser-fast`. Blocked, so it handed the browser straight back | [0.0055 USDC](https://hashscan.io/testnet/transaction/0.0.7162784-1789134582-137739105) |
-| 2, 3 | Escalated to `browser-max`, got past the bot wall, topped up mid-lease instead of starting over | [0.0817](https://hashscan.io/testnet/transaction/0.0.7162784-1789134629-196804413) + [0.0817](https://hashscan.io/testnet/transaction/0.0.7162784-1789134794-963904561) |
-| 4 | Took `desktop-4` on `engineering`, designed the part in CAD, pulled the model files off | [0.0136](https://hashscan.io/testnet/transaction/0.0.7162784-1789134826-675675371) |
-| 5, 6 | `desktop-4` on `studio` for the 3D scene, and a `machine-8` beside it for the render | [0.0136](https://hashscan.io/testnet/transaction/0.0.7162784-1789135048-633834405) + [0.0256](https://hashscan.io/testnet/transaction/0.0.7162784-1789135819-364538460) |
-| 7 | Topped the desktop up, laid out the spec sheet, pulled the PDF off, handed everything back | [0.0139](https://hashscan.io/testnet/transaction/0.0.7162784-1789136263-088772439) |
+| # | What it did | Paid | Proof |
+|---|---|---:|---|
+| 1 | Opened the marketplace on `browser-fast`. Blocked, so it handed the browser straight back | 0.0055 USDC | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1789134582-137739105) |
+| 2 | Escalated to `browser-max` and got past the bot wall | 0.0817 USDC | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1789134629-196804413) |
+| 3 | Topped that same browser up mid-lease instead of starting over | 0.0817 USDC | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1789134794-963904561) |
+| 4 | Took `desktop-4` on `engineering` and designed the part in CAD | 0.0136 USDC | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1789134826-675675371) |
+| 5 | Took `desktop-4` on `studio` and built the 3D scene | 0.0136 USDC | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1789135048-633834405) |
+| 6 | Rented a `machine-8` beside it for the render | 0.0256 USDC | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1789135819-364538460) |
+| 7 | Topped the desktop up, laid out the spec sheet, pulled the PDF off | 0.0139 USDC | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1789136263-088772439) |
 
-Five machines, three kinds, **0.2357 USDC**, six files home with their hashes. Every payment is a
-USDC transfer from the agent's own account
+Five machines, three kinds, **0.2357 USDC**, six files home with their hashes.
+
+Every one of those is a USDC transfer from the agent's own account
 [`0.0.10454764`](https://hashscan.io/testnet/account/0.0.10454764) to the gateway
 [`0.0.7284970`](https://hashscan.io/testnet/account/0.0.7284970). Check the fee line on any of
-them: the network fee, about 0.0149 ℏ, was paid by the facilitator
-[`0.0.7162784`](https://hashscan.io/testnet/account/0.0.7162784). The agent's balance moved by
-exactly the price.
+them: the network fee, about 0.0149 ℏ, came from the facilitator
+[`0.0.7162784`](https://hashscan.io/testnet/account/0.0.7162784), so the agent's balance moved by
+exactly the price. The seconds each machine ran, and the receipt closing it out, are on topic
+[`0.0.10454763`](https://hashscan.io/testnet/topic/0.0.10454763).
 
 ## How a rental works
 
