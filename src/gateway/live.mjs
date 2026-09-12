@@ -47,6 +47,7 @@ export function viewerPage({ lease, wsPath, origin, bare = false }) {
   #stage { position:relative; width:100%; max-width:1280px; aspect-ratio:16/9; background:#0d0b09;
            border:1px solid var(--line); border-radius:12px; overflow:hidden; }
   #screen { width:100%; height:100%; object-fit:contain; display:block; }
+  #screen[hidden] { display:none; }
   #status { position:absolute; inset:0; display:grid; place-items:center; color:var(--muted);
             font-family:ui-monospace,monospace; font-size:12px; text-align:center; padding:20px; }
   footer { padding:10px 18px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
@@ -105,7 +106,7 @@ ${bare ? `
         return;
       }
       img.src = "data:image/jpeg;base64," + ev.data;
-      if (img.hidden) { img.hidden = false; status.textContent = ""; }
+      img.hidden = false; status.textContent = "";
     };
     ws.onclose = () => {
       state.textContent = "reconnecting";
@@ -174,10 +175,20 @@ export function attachLiveSocket(httpServer, { store, resolveUpstream, grabFrame
 
     const up = new WebSocket(wsUrl, { perMessageDeflate: false });
     let id = 0;
-    let session = null;
+    const sent = new Map();      // request id -> method, so an error can be read for what it refused
+    let session = null;          // the page session frames come from
+    let pageLevel = false;       // the endpoint is a page itself and takes Page commands directly
+    let sawTargets = false;
+    let attaching = false;
+    let beat = null;
+    let waiting = null;
     let lastFrame = 0;
-    const send = (method, params, sessionId) =>
-      up.send(JSON.stringify({ id: ++id, method, params, ...(sessionId ? { sessionId } : {}) }));
+    const send = (method, params, sessionId) => {
+      const n = ++id;
+      sent.set(n, method);
+      up.send(JSON.stringify({ id: n, method, params, ...(sessionId ? { sessionId } : {}) }));
+      return n;
+    };
 
     /**
      * Screencast, plus a heartbeat.
@@ -189,6 +200,7 @@ export function attachLiveSocket(httpServer, { store, resolveUpstream, grabFrame
      * another whenever a second has passed without one arriving.
      */
     const startScreencast = (sessionId) => {
+      clearInterval(beat);
       send("Page.enable", {}, sessionId);
       send("Page.startScreencast",
         { format: "jpeg", quality: 70, maxWidth: 1280, maxHeight: 720, everyNthFrame: 1 },
@@ -196,15 +208,30 @@ export function attachLiveSocket(httpServer, { store, resolveUpstream, grabFrame
       say({ state: "live" });
       const shot = () => send("Page.captureScreenshot", { format: "jpeg", quality: 60 }, sessionId);
       shot();
-      const beat = setInterval(() => { if (Date.now() - lastFrame > 1200) shot(); }, 1000);
-      up.on("close", () => clearInterval(beat));
-      client.on("close", () => clearInterval(beat));
+      beat = setInterval(() => { if (Date.now() - lastFrame > 1200) shot(); }, 1000);
+    };
+
+    /**
+     * Find a page and watch it, and keep looking until there is one.
+     *
+     * A browser lease is usually watched before the agent has opened anything, and a browser with
+     * no page has nothing to screencast. Stopping there left the viewer blank for the whole run:
+     * nothing closed, so nothing reconnected, and the tab the agent opened a second later was
+     * never picked up. So say so, ask again shortly, and take a new tab the moment Chrome
+     * announces it. If the watched tab closes, go and find the next one.
+     */
+    const isPage = (t) => t?.type === "page" && !String(t.url ?? "").startsWith("devtools://");
+    const lookForPage = () => { clearTimeout(waiting); send("Target.getTargets", {}); };
+    const lookAgainSoon = () => { clearTimeout(waiting); waiting = setTimeout(lookForPage, 1500); };
+    const attach = (targetId) => {
+      if (session || attaching) return;
+      attaching = true;
+      send("Target.attachToTarget", { targetId, flatten: true });
     };
 
     up.on("open", () => {
-      // A page-level endpoint takes Page commands directly; a browser-level one does not,
-      // and answers Target.getTargets instead. Try the cheap path and fall back on the reply.
-      send("Target.getTargets", {});
+      send("Target.setDiscoverTargets", { discover: true });
+      lookForPage();
     });
 
     up.on("message", (buf) => {
@@ -212,18 +239,37 @@ export function attachLiveSocket(httpServer, { store, resolveUpstream, grabFrame
       try { msg = JSON.parse(buf.toString()); } catch { return; }
 
       if (msg.result?.targetInfos) {
-        const page = msg.result.targetInfos.find((t) => t.type === "page" && !t.url.startsWith("devtools://"));
-        if (!page) { say({ state: "unavailable", note: "no page open on this machine" }); return; }
-        send("Target.attachToTarget", { targetId: page.targetId, flatten: true });
+        sawTargets = true;
+        const page = msg.result.targetInfos.find(isPage);
+        if (page) attach(page.targetId);
+        else if (!session) { say({ state: "waiting", note: "no page open yet, waiting for the agent" }); lookAgainSoon(); }
+        return;
+      }
+      if (msg.method === "Target.targetCreated" || msg.method === "Target.targetInfoChanged") {
+        if (!session && isPage(msg.params?.targetInfo)) attach(msg.params.targetInfo.targetId);
+        return;
+      }
+      if (msg.method === "Target.detachedFromTarget" && session && msg.params?.sessionId === session) {
+        session = null; attaching = false; clearInterval(beat);
+        say({ state: "waiting", note: "that tab closed, looking for the next one" });
+        lookForPage();
         return;
       }
       if (msg.result?.sessionId && !session) {
-        session = msg.result.sessionId;
+        session = msg.result.sessionId; attaching = false;
+        clearTimeout(waiting);
         startScreencast(session);
         return;
       }
-      // a page-level endpoint rejects Target.getTargets; screencast it without a session
-      if (msg.error && !session) { session = undefined; startScreencast(undefined); return; }
+      if (msg.error) {
+        const method = sent.get(msg.id);
+        if (method === "Target.attachToTarget") { attaching = false; lookAgainSoon(); return; }
+        // a page-level endpoint refuses Target commands outright; screencast it directly, once
+        if (method?.startsWith("Target.") && !sawTargets && !session && !pageLevel) {
+          pageLevel = true; clearTimeout(waiting); startScreencast(undefined);
+        }
+        return;
+      }
 
       if (msg.method === "Page.screencastFrame") {
         lastFrame = Date.now();
@@ -232,15 +278,16 @@ export function attachLiveSocket(httpServer, { store, resolveUpstream, grabFrame
         return;
       }
       /* the heartbeat's answer: a still of a page that is not repainting */
-      if (msg.result?.data && session !== null) {
+      if (msg.result?.data && (session || pageLevel)) {
         lastFrame = Date.now();
         try { client.send(msg.result.data); } catch {}
       }
     });
 
-    up.on("close", () => client.close());
-    up.on("error", (e) => { say({ state: "unavailable", note: "lost the machine" }); client.close(); });
-    client.on("close", () => { try { up.close(); } catch {} });
+    const stop = () => { clearInterval(beat); clearTimeout(waiting); };
+    up.on("close", () => { stop(); client.close(); });
+    up.on("error", () => { say({ state: "unavailable", note: "lost the machine" }); client.close(); });
+    client.on("close", () => { stop(); try { up.close(); } catch {} });
   }
 
   /**
