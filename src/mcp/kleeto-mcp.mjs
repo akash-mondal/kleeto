@@ -46,10 +46,46 @@ const signer = createClientHederaSigner(
   process.env.AGENT_ACCOUNT_ID,
   PrivateKey.fromStringDer(process.env.AGENT_PRIVATE_KEY),
 );
-const pay = wrapFetchWithPayment(fetch, new x402Client().register(NETWORK, new ExactHederaScheme(signer)));
+/**
+ * One paying fetch per asset, because the asset is chosen when the client is built.
+ *
+ * The selector picks the offer the run is paying in. Spend controls are off: they price a
+ * payment in USD to enforce a cap and can only price the network's default asset, so with them
+ * on the HBAR half of a two-asset offer is dropped and the wallet pays USDC whatever it asked
+ * for. The cap that matters here is the credit the agent buys, which it chooses per top-up.
+ */
+const payers = new Map();
+const payer = (asset) => {
+  if (!payers.has(asset)) {
+    const client = new x402Client(
+      (_v, accepts) => accepts.find((a) => (a.extra?.symbol ?? "").toLowerCase() === asset) ?? accepts[0],
+    ).register(NETWORK, new ExactHederaScheme(signer));
+    client.setSpendControls(false);
+    payers.set(asset, wrapFetchWithPayment(fetch, client));
+  }
+  return payers.get(asset);
+};
 
-const call = async (path, { method = "GET", body, paid = false } = {}) => {
-  const f = paid ? pay : fetch;
+/**
+ * Which asset this run pays in.
+ *
+ * The person watching picked it when they submitted the job, so their choice wins over whatever
+ * the model passes to the tool. Without a run there is nobody to have chosen, and the argument
+ * stands.
+ */
+let runAsset;
+async function assetFor(requested) {
+  if (runAsset === undefined) {
+    runAsset = null;
+    if (JOB) {
+      try { runAsset = (await call(`/v1/jobs/${JOB}`)).asset ?? null; } catch { /* fall back to the argument */ }
+    }
+  }
+  return String(runAsset ?? requested ?? "usdc").toLowerCase();
+}
+
+const call = async (path, { method = "GET", body, paid = false, asset = "usdc" } = {}) => {
+  const f = paid ? payer(asset) : fetch;
   const r = await f(GATEWAY + path, {
     method, headers: { "Content-Type": "application/json", ...(JOB ? { "x-kleeto-job": JOB } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
@@ -93,12 +129,13 @@ const TOOLS = {
       type: "object",
       properties: {
         tinybar: { type: "number", description: "How much credit to buy, in tinybar. 100000000 is 1 HBAR." },
-        asset: { type: "string", enum: ["usdc", "hbar"], description: "Which asset to pay in. Both are always accepted." },
+        asset: { type: "string", enum: ["usdc", "hbar"], description: "Which asset to pay in. Both are always accepted; on a watched run the asset the person picked is used instead." },
       },
     },
-    run: async ({ tinybar = 200_000_000, asset = "hbar" }) => {
+    run: async ({ tinybar = 200_000_000, asset }) => {
+      const chosen = await assetFor(asset);
       const id = await session();
-      return call(`/v1/sessions/${id}/topup?prefer=${asset}`, { method: "POST", paid: true, body: { tinybar } });
+      return call(`/v1/sessions/${id}/topup?prefer=${chosen}`, { method: "POST", paid: true, asset: chosen, body: { tinybar } });
     },
   },
   kleeto_rent: {
